@@ -210,7 +210,7 @@ def interp_event(
     event_index: int,
     tol: float = 1e-12,
     delta: float = 1e-10,
-    args:tuple=(),
+    args: tuple = (),
 ):
     # Decker's (secant) method: https://en.wikipedia.org/wiki/Brent%27s_method
     assert g0 * g1 < 0
@@ -265,5 +265,3 @@ def interp_event(
 
         if np.abs(gb) < tol or np.abs(gs) < tol or np.abs(b - a) < tol:
             return s, xs
-        # else:
-        #     return 0.0, np.array([0.0, 0.0])

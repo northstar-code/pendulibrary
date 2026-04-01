@@ -4,114 +4,10 @@ import numpy as np
 from numba import float64 as nbfloat64
 from numba.typed import List as nbList
 from typing import Tuple, Callable, List
-import dynamicslib.DOP853_coefs as coefs
-from dynamicslib.interpolate import dop_interpolate, interp_event
+import pendulibrary.DOP853_coefs as coefs
+from pendulibrary.interpolate import dop_interpolate, interp_event
 
-# Keeping for later, probably wont use
-@njit
-def rkf45(
-    func: Callable,
-    t_span: Tuple[float, float],
-    x0: NDArray,
-    atol: float = 1e-10,
-    rtol: float = 1e-10,
-    init_step: float = 1e-6,
-) -> Tuple[NDArray, NDArray]:
-    """Runge Kutta 45
-
-    Args:
-        func (Callable): _description_
-        t_span (Tuple[float, float]): _description_
-        x0 (NDArray): _description_
-        atol (float, optional): _description_. Defaults to 1e-10.
-        rtol (float, optional): _description_. Defaults to 1e-10.
-        init_step (float, optional): _description_. Defaults to 1e-6.
-
-    Returns:
-        Tuple[NDArray, NDArray]: _description_
-    """
-
-    t0, tf = t_span
-    t = t0
-    xs = np.expand_dims(x0, axis=0)
-    ts = np.array([t0], dtype=np.float64)
-    x = x0
-    h = init_step
-
-    while t < tf:
-        if t + h > tf:
-            h = tf - t
-        tol = atol + np.linalg.norm(x, np.inf) * rtol
-        # fmt: off
-        k1 = h * func(t, x)
-        k2 = h * func(t + (1/4)*h, x + (1/4)*k1)
-        k3 = h * func(t + (3/8)*h, x + (3/32)*k1 + (9/32)*k2)
-        k4 = h * func(t + (12/13)*h, x + (1932/2197)*k1 - (7200/2197)*k2 + (7296/2197)*k3)
-        k5 = h * func(t + h, x + (439/216)*k1 - 8*k2 + (3680/513)*k3 - (845/4104)*k4)
-        k6 = h * func(t + (1/2)*h, x - (8/27)*k1 + 2*k2 - (3544/2565)*k3 + (1859/4104)*k4 - (11/40)*k5)
-        x4 = x + (25 / 216) * k1 + (1408 / 2565) * k3 + (2197 / 4104) * k4 - (1 / 5) * k5
-        x5 = x + (16/135)*k1 + (6656/12825)*k3 + (28561/56430)*k4 - (9 / 50)*k5 + (2 / 55)*k6
-        # fmt: on
-
-        error = np.linalg.norm(x5 - x4)
-
-        # no div0
-        s = (tol / error) ** 0.25 if error != 0 else 2
-
-        if s > 2:
-            s = 2
-        if s < 0.1:
-            s = 0.1
-
-        if error <= tol:
-            t += h
-            x = x5
-            ts = np.concatenate((ts, np.array([t], dtype=np.float64)))
-            xs = np.concatenate((xs, np.expand_dims(x, axis=0)))
-
-        h *= s
-
-    return ts, xs
-
-
-# A single RK8 step
-@njit
-def rk8_step(
-    func: Callable,
-    sv0: NDArray,
-    t0: float,
-    dt: float,
-    args: Tuple = (),
-) -> NDArray:
-    """Single RK8 step
-
-    Args:
-        func (Callable): dynamics function
-        t_span (Tuple[float, float]): beginning and end times
-        sv0 (NDArray): initial state, doesnt have to be 1d
-        dt (float): amount of time to propagate for
-        args (Tuple, optional): additional args to func(t, x, *args). Defaults to ().
-
-    Returns:
-        NDArray: propagated
-    """
-    x_shape = np.shape(sv0)
-    sv0 = sv0.copy().flatten()
-    n = len(sv0)
-
-    K = np.empty((coefs.n_stages + 1, n), dtype=np.float64)
-    K[0] = func(t0, sv0, *args)
-    for sm1 in range(coefs.N_STAGES - 1):
-        s = sm1 + 1
-        a = coefs.A[s]
-        c = coefs.C[s]
-        dsv = np.dot(K[:s].T, a[:s]) * dt
-        K[s] = func(t0 + c * dt, sv0 + dsv, *args)
-
-    svnew = sv0 + dt * np.dot(K[:-1].T, coefs.B)
-
-    return np.reshape(svnew, x_shape)
-
+#TODO: hardcode the dynamics function in
 
 @njit
 def dop853_dense_extra(
@@ -433,6 +329,8 @@ def dop853(
 
     return (ts_out, xs_out, (fs_out, Fs_out), (te_out, xe_out))
 
+
+# prolly dont need
 
 def dispatch_events(*events):
     """Create compiled event dispatcher
