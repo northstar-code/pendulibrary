@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pendulibrary"
+version = "0.1.0"
+description = "For MA543"
+classifiers = [
+    "Intended Audience :: None",
+    "Natural Language :: English",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.13",
+]
+dependencies = ["numpy", "numba"]
+requires-python = ">=3.10"
+
+[tool.setuptools]
