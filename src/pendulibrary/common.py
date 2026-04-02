@@ -3,8 +3,8 @@ from numpy.typing import NDArray
 from numba import njit, prange
 from numba import types
 
-from pendulibrary.integrate import dop853
-from pendulibrary.interpolate import dop_interpolate
+from pendulibrary.integrate import integrate
+from pendulibrary.interpolate import integrate_interpolate
 
 
 # %% DOUBLE PENDULUM
