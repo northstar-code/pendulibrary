@@ -6,6 +6,7 @@ from numba.typed import List as nbList
 from typing import Tuple, Callable, List
 import pendulibrary.DOP853_coefs as coefs
 from pendulibrary.interpolate import dop_interpolate, interp_event
+from pendulibrary.common import eom, stm_eom
 
 #TODO: hardcode the dynamics function in
 
@@ -329,6 +330,179 @@ def dop853(
 
     return (ts_out, xs_out, (fs_out, Fs_out), (te_out, xe_out))
 
+@njit(cache=True)
+def integrate_state(
+    t_span: Tuple[float, float],
+    x0: NDArray,
+    int_tol: float = 1e-12,
+    Lr:float=1.0,
+    Mr:float=1.0,
+    init_step: float = 1.0
+) -> Tuple[
+    NDArray[np.floating],
+    NDArray[np.floating],NDArray[np.floating]
+]:
+    atol = rtol = int_tol
+    
+    # %% Prepare integrator
+    forward = t_span[1] > t_span[0]
+
+    t0, tf = t_span
+    t = t0
+    nx = len(x0)
+
+    K_ext = np.empty((coefs.N_STAGES_EXTENDED, nx), dtype=np.float64)
+    K = K_ext[: coefs.n_stages + 1]
+
+    ts = nbList()
+    ts.append(t0)
+
+    xs = nbList()
+    xs.append(x0)
+
+    fs = nbList()
+    fs.append(eom(t0, x0, Lr, Mr))
+
+    # %% initialize
+    x = x0.copy()
+    h = abs(init_step) if forward else -abs(init_step)
+
+    while (t < tf) if forward else (t > tf):
+        if (t + h > tf) if forward else (t + h < tf):
+            h = tf - t
+
+        K[0] = eom(t, x, Lr,Mr)
+        for sm1 in range(coefs.N_STAGES - 1):
+            s = sm1 + 1
+            a = coefs.A[s]
+            c = coefs.C[s]
+            dy = np.dot(K[:s].T, a[:s]) * h
+            K[s] = eom(t + c * h, x + dy, Lr,Mr)
+
+        xnew = x + h * np.dot(K[:-1].T, coefs.B)
+
+        K[-1] = eom(t + h, xnew, Lr,Mr)
+        
+        scale = atol + np.maximum(np.abs(x), np.abs(xnew)) * rtol
+        err5 = np.dot(K.T, coefs.E5) / scale
+        err3 = np.dot(K.T, coefs.E3) / scale
+        err5_norm_2 = np.linalg.norm(err5) ** 2
+        err3_norm_2 = np.linalg.norm(err3) ** 2
+        denom = err5_norm_2 + 0.01 * err3_norm_2
+        error = np.abs(h) * err5_norm_2 / np.sqrt(denom * len(scale))
+
+        hscale = 0.9 * error ** (-1 / 8) if error != 0 else 2
+
+        if error <= 1:
+            tnew = t + h
+
+            t = tnew
+            x = xnew
+            ts.append(t)
+            xs.append(x)
+            fs.append(K[-1])
+        h *= hscale
+
+    nt = len(ts)
+    ts_out = np.empty((nt), dtype=np.float64)
+    xs_out = np.empty((nx, nt), dtype=np.float64)
+    for jj in range(nt):
+        xs_out[:, jj] = xs[jj]
+        ts_out[jj] = ts[jj]
+
+    fs_out = np.empty((len(ts), nx), dtype=np.float64)
+    for jj in range(len(ts)):
+        fs_out[jj] = fs[jj]
+
+    return ts_out, xs_out, fs_out
+
+
+@njit(cache=True)
+def integrate_state_stm(
+    t_span: Tuple[float, float],
+    x0: NDArray,
+    int_tol: float = 1e-12,
+    Lr:float=1.0,
+    Mr:float=1.0,
+    init_step: float = 1.0
+) -> Tuple[
+    NDArray[np.floating],
+    NDArray[np.floating],NDArray[np.floating]
+]:
+    atol = rtol = int_tol
+    
+    # %% Prepare integrator
+    forward = t_span[1] > t_span[0]
+
+    t0, tf = t_span
+    t = t0
+    nx = len(x0)
+
+    K_ext = np.empty((coefs.N_STAGES_EXTENDED, nx), dtype=np.float64)
+    K = K_ext[: coefs.n_stages + 1]
+
+    ts = nbList()
+    ts.append(t0)
+
+    xs = nbList()
+    xs.append(x0)
+
+    fs = nbList()
+    fs.append(stm_eom(t0, x0, Lr, Mr))
+
+    # %% initialize
+    x = x0.copy()
+    h = abs(init_step) if forward else -abs(init_step)
+
+    while (t < tf) if forward else (t > tf):
+        if (t + h > tf) if forward else (t + h < tf):
+            h = tf - t
+
+        K[0] = stm_eom(t, x, Lr,Mr)
+        for sm1 in range(coefs.N_STAGES - 1):
+            s = sm1 + 1
+            a = coefs.A[s]
+            c = coefs.C[s]
+            dy = np.dot(K[:s].T, a[:s]) * h
+            K[s] = stm_eom(t + c * h, x + dy, Lr,Mr)
+
+        xnew = x + h * np.dot(K[:-1].T, coefs.B)
+
+        K[-1] = stm_eom(t + h, xnew, Lr,Mr)
+        
+        scale = atol + np.maximum(np.abs(x), np.abs(xnew)) * rtol
+        err5 = np.dot(K.T, coefs.E5) / scale
+        err3 = np.dot(K.T, coefs.E3) / scale
+        err5_norm_2 = np.linalg.norm(err5) ** 2
+        err3_norm_2 = np.linalg.norm(err3) ** 2
+        denom = err5_norm_2 + 0.01 * err3_norm_2
+        error = np.abs(h) * err5_norm_2 / np.sqrt(denom * len(scale))
+
+        hscale = 0.9 * error ** (-1 / 8) if error != 0 else 2
+
+        if error <= 1:
+            tnew = t + h
+
+            t = tnew
+            x = xnew
+            ts.append(t)
+            xs.append(x)
+            fs.append(K[-1])
+        h *= hscale
+
+    nt = len(ts)
+    ts_out = np.empty((nt), dtype=np.float64)
+    xs_out = np.empty((nx, nt), dtype=np.float64)
+    for jj in range(nt):
+        xs_out[:, jj] = xs[jj]
+        ts_out[jj] = ts[jj]
+
+    fs_out = np.empty((len(ts), nx), dtype=np.float64)
+    for jj in range(len(ts)):
+        fs_out[jj] = fs[jj]
+
+    return ts_out, xs_out, fs_out
+
 
 # prolly dont need
 
@@ -380,3 +554,5 @@ def dispatch_events(*events):
         #fmt: on
 
     return dispatcher
+
+
