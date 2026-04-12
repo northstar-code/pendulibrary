@@ -5,13 +5,13 @@ from numba import float64 as nbfloat64
 from numba.typed import List as nbList
 from typing import Tuple, Callable, List
 import pendulibrary.DOP853_coefs as coefs
-from pendulibrary.interpolate import dop_interpolate, interp_event
+from pendulibrary.interpolate import integrate_interpolate, interp_event
 from pendulibrary.common import eom, stm_eom
 
 #TODO: hardcode the dynamics function in
 
 @njit
-def dop853_dense_extra(
+def integrate_dense_extra(
     func: Callable,
     h: float,
     t0: float,
@@ -59,7 +59,7 @@ def dop853_dense_extra(
 
 
 @njit
-def dop853(
+def integrate(
     func: Callable[..., NDArray],
     t_span: Tuple[float, float],
     x0: NDArray,
@@ -237,7 +237,7 @@ def dop853(
 
             if dense_output:
                 # print(args)
-                F = dop853_dense_extra(func, h, t, xnew, x, K[-1], K_ext, nx, args)
+                F = integrate_dense_extra(func, h, t, xnew, x, K[-1], K_ext, nx, args)
                 Fs.append(F)
 
             # %% Event handling
@@ -289,7 +289,7 @@ def dop853(
                 t_eval = np.append(t_eval[t_eval <= t], t)
             elif not forward and t_eval[-1] <= t:
                 t_eval = np.append(t_eval[t_eval <= t], t)
-        _, xs_out = dop_interpolate(ts, xs, Fs, t_eval)
+        _, xs_out = integrate_interpolate(ts, xs, Fs, t_eval)
         ts_out = t_eval
     else:  # convert ts and xs to arrays
         nt = len(ts)

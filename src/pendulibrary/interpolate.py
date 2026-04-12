@@ -105,7 +105,7 @@ def interp_hermite(
 
 
 @njit(cache=True)
-def dop_interp_step(
+def integrate_interp_step(
     t_eval: NDArray[np.floating],
     x0: NDArray[np.floating],
     t0: float,
@@ -142,7 +142,7 @@ def dop_interp_step(
 
 
 @njit(cache=True)
-def dop_interpolate(
+def integrate_interpolate(
     ts: NDArray,
     xs: NDArray,
     Fs: NDArray,
@@ -191,7 +191,7 @@ def dop_interpolate(
         if len(ts_interval):
             x0 = xs[j]
             Fs_interval = Fs[j]
-            newterms = dop_interp_step(ts_interval, x0, t0, t1, Fs_interval)
+            newterms = integrate_interp_step(ts_interval, x0, t0, t1, Fs_interval)
             x_eval = np.concatenate((x_eval, newterms))
 
     return t_eval, x_eval.T
@@ -245,7 +245,7 @@ def interp_event(
         else:
             mflag = False
 
-        xs = dop_interp_step(np.array([s]), x0, t0, t1, F)[0]
+        xs = integrate_interp_step(np.array([s]), x0, t0, t1, F)[0]
 
         gs = g(event_index, s, xs, args)
         d = c

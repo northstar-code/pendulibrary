@@ -1,6 +1,13 @@
 import numpy as np
 from numpy.typing import NDArray
 from numba import njit, prange
+from numba import types
+
+from pendulibrary.integrate import integrate
+from pendulibrary.interpolate import integrate_interpolate
+
+
+# %% DOUBLE PENDULUM
 
 
 @njit(cache=True)

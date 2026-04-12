@@ -1,5 +1,5 @@
 import numpy as np
-from pendulibrary.integrate import dop853
+from pendulibrary.integrate import integrate
 from numpy.typing import NDArray
 from typing import Tuple, List
 from abc import ABC, abstractmethod
@@ -84,7 +84,7 @@ class spatial_perpendicular(Targetter):
         x0 = self.get_x0(X)
         period = self.get_period(X)
         xstmIC = np.array([*x0, *np.eye(6).flatten()])
-        ts, ys, _, _ = dop853(
+        ts, ys, _, _ = integrate(
             coupled_stm_eom, (0.0, period / 2), xstmIC, self.int_tol, args=(self.mu,)
         )
         xf, stm = ys[:6, -1], ys[6:, -1].reshape(6, 6)
@@ -146,7 +146,7 @@ class fullstate_minus_one(Targetter):
         x0 = self.get_x0(X)
         period = self.get_period(X)
         xstmIC = np.array([*x0, *np.eye(6).flatten()])
-        ts, ys, _, _ = dop853(
+        ts, ys, _, _ = integrate(
             coupled_stm_eom, (0.0, period), xstmIC, self.int_tol, args=(self.mu,)
         )
         xf, stm = ys[:6, -1], ys[6:, -1].reshape(6, 6)
