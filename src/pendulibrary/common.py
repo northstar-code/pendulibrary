@@ -3,9 +3,6 @@ from numpy.typing import NDArray
 from numba import njit, prange
 from numba import types
 
-from pendulibrary.integrate import integrate
-from pendulibrary.interpolate import integrate_interpolate
-
 
 # %% DOUBLE PENDULUM
 
@@ -14,7 +11,7 @@ from pendulibrary.interpolate import integrate_interpolate
 def eom(
     _, state: NDArray[np.floating], Lr: float = 1.0, Mr: float = 1.0
 ) -> NDArray[np.floating]:
-    th1, th2, dth1, dth2 = state
+    th1, th2, dth1, dth2 = state[0], state[1], state[2], state[3]
     Dth = th1 - th2
 
     sinDth = np.sin(Dth)
@@ -46,6 +43,16 @@ def eom(
     return dstate
 
 
+@njit(cache=True)
+def get_A_raw(state: np.ndarray, Lr: float = 1.0, Mr: float = 1.0):
+    Dth = state[0] - state[1]
+
+    sinDth = np.sin(Dth)
+    cosDth = np.cos(Dth)
+    return get_A(state, sinDth, cosDth, Lr, Mr)
+
+
+@njit(cache=True)
 def get_A(state: np.ndarray, sinDth, cosDth, Lr: float = 1.0, Mr: float = 1.0):
     th1, th2, dth1, dth2 = state
 
@@ -93,7 +100,10 @@ def get_A(state: np.ndarray, sinDth, cosDth, Lr: float = 1.0, Mr: float = 1.0):
     A[2, 1] = -frac1 - (coef + term4) * ooden
 
     A[3, 0] = (
-        2.0 * ooL * ooden * (-LrMrdth2sinDth * sinDth + term0 * cosDth)
+        2.0
+        * ooL
+        * ooden
+        * ((-LrMrdth2sinDth - Mrp1 * sin_th1) * sinDth + term0 * cosDth)
         - MrooLodensq * sin2Dth * sinDth
     )
 
