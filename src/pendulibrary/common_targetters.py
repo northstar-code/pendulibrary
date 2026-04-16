@@ -53,25 +53,36 @@ class Targetter(ABC):
         pass
 
 
-class th1_fixed(Targetter):
-    def __init__(self, ind_no_enforce: int, Lr: float, Mr: float, int_tol: float):
+class single_fixed(Targetter):
+    def __init__(
+        self,
+        ind_fixed: int,
+        val_fixed: float,
+        ind_no_enforce: int,
+        Lr: float,
+        Mr: float,
+        int_tol: float,
+    ):
         self.int_tol = int_tol
         self.Lr = Lr
         self.Mr = Mr
+        self.val_fixed = val_fixed
+        self.ind_fixed = ind_fixed
         self.ind_no_enforce = ind_no_enforce
 
     def get_X(self, x0: np.ndarray, period: float):
-        return np.array([x0[0], x0[1], x0[2], period])
+        return np.append(np.delete(x0, self.ind_fixed), period)
 
     def get_x0(self, X: np.ndarray):
-        return np.array([0.0, X[0], X[1], X[2]])
+        states = np.array(X[:-1])
+        return np.insert(states, self.ind_fixed, self.val_fixed)
 
     def get_period(self, X: np.ndarray):
         return X[-1]
 
     def DF(self, stm: np.ndarray, eomf: np.ndarray):
         dF = np.hstack((stm - np.eye(4), eomf[:, None]))
-        dF = np.delete(dF, 0, 1)
+        dF = np.delete(dF, self.ind_fixed, 1)
         dF = np.delete(dF, self.ind_no_enforce, 0)
         return dF
 

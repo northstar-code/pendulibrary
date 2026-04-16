@@ -40,7 +40,7 @@ def dc_tangent(
     dX = np.array([np.inf] * nX)
     while np.linalg.norm(G) > tol and np.linalg.norm(dX) > tol:
         if max_iter is not None and niters > max_iter:
-            raise RuntimeError("Exceeded maximum iterations")
+            raise RuntimeError("Reached max iterations")
         f, dF, stm_full = f_df_func(X)
         delta = X - X_prev
         lastG = np.dot(delta, delta) - s**2

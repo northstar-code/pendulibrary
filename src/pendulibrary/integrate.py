@@ -353,13 +353,13 @@ def integrate_state(
     K = K_ext[: coefs.n_stages + 1]
 
     ts = nbList()
-    ts.append(0.)
+    ts.append(0.0)
 
     xs = nbList()
     xs.append(x0)
 
     fs = nbList()
-    fs.append(eom(0., x0, Lr, Mr))
+    fs.append(eom(0.0, x0, Lr, Mr))
 
     # %% initialize
     x = x0.copy()
@@ -444,13 +444,15 @@ def integrate_state_stm(
     ts.append(0.0)
 
     xs = nbList()
-    xs.append(x0)
 
     # %% initialize
-    x = np.empty(nx)
+    x = np.zeros(nx)
     for i in range(4):
         x[i] = x0[i]
         x[4 + i * 5] = 1.0  # STM components
+
+    xs.append(x)
+
     h = abs(init_step) if forward else -abs(init_step)
 
     while (t < tf) if forward else (t > tf):
