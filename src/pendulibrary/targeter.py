@@ -20,7 +20,6 @@ def dc_tangent(
         f_df_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
         s (float, optional): step size. Defaults to 1e-3.
         tol (float, optional): tolerance for convergence. Defaults to 1e-8.
-        modified (boolean, optional): whether to use modified algorithm. Defaults to True.
         max_iter (int): maximum number of iterations
         fudge (float): multiply step by this much
 

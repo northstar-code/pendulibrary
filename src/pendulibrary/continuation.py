@@ -15,9 +15,6 @@ def fixed_step_cont(
     max_step: None | float = None,
     fudge: float | None = None,
     exact_tangent: bool = False,
-    modified: bool = True,
-    stop_callback: Callable | None = None,  # possibly change to also take dF?
-    stop_kwags: dict = {},
 ) -> Tuple[List, List]:
     """Custom arclength-based continuation wrapper. The modified algorithm has a full step size of s, rather than projected step size.
 
@@ -40,10 +37,6 @@ def fixed_step_cont(
         Tuple[List, List]: all Xs, all eigenvalues
     """
     # if no stop callback, make one
-    if callable(stop_callback):
-        stopfunc = lambda X, ecurr, elast: stop_callback(X, ecurr, elast, **stop_kwags)
-    else:
-        stopfunc = lambda X, ecurr, elast: False
 
     X = X0.copy()
     tangent_prev = dir0 / np.linalg.norm(dir0)
@@ -64,7 +57,7 @@ def fixed_step_cont(
     arclen = 0.0
 
     # ensure that the stopping condition hasnt been satisfied
-    while arclen < S and not (arclen > 0 and stopfunc(X, eig_vals[-1], eig_vals[-2])):
+    while arclen < S:
         # if we flip flop, undo the flipflop
         if np.dot(tangent, tangent_prev) < 0:
             tangent *= -1
@@ -75,7 +68,6 @@ def fixed_step_cont(
                 f_df_stm_func,
                 s,
                 tol,
-                modified=modified,
                 max_iter=max_iter,
                 max_step=max_step,
                 fudge=fudge,
@@ -92,7 +84,7 @@ def fixed_step_cont(
         Xs.append(X)
 
         eig_vals.append(np.linalg.eigvals(stm))
-        dS = s if modified else np.linalg.norm(Xs[-1] - Xs[-2])
+        dS = s
 
         tangent_prev = tangent
 
@@ -158,11 +150,6 @@ def adaptive_cont(
     svd = np.linalg.svd(dF)
     tangent = tangent_prev.copy() if exact_tangent else svd.Vh[-1]
 
-    # # if the direction we asked for is normal to the computed tangent, use the second-most tangent vector
-    # if np.abs(np.dot(tangent, dir0)) < 1e-5:
-    #     print("RESETTING")
-    #     tangent = svd.Vh[-1]
-
     Xs = [X0]
     eig_vals = [np.linalg.eigvals(stm)]
     tangents = [tangent.copy()]
@@ -182,7 +169,7 @@ def adaptive_cont(
             bar.set_description(f"s = {s:.3e}")
             try:
                 X, dF, stm, niters = dc_tangent(
-                    X, tangent, f_df_stm_func, s, tol, modified=True, max_iter=max_iter
+                    X, tangent, f_df_stm_func, s, tol, max_iter=max_iter
                 )
             except np.linalg.LinAlgError as err:
                 print(f"Linear algebra error encountered: {err}")
@@ -314,116 +301,40 @@ def natural_param_cont(
     return Xs, eig_vals, params
 
 
-def find_bif(
-    X0: NDArray | List,
-    f_df_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
-    dir0: NDArray | List,
-    s0: float = 1e-2,
-    targ_tol: float = 1e-10,
-    skip: int = 0,
-    bisect_tol: float = 1e-5,
-    bif_type: str | Tuple[int, int] | Tuple[int] = "tangent",
-    debug: bool = False,
-    scale: float = 5,
-) -> Tuple[NDArray, NDArray]:
-    """Find bifurcation using Broucke stability
+# def find_bif(
+#     X0: NDArray | List,
+#     f_df_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
+#     dir0: NDArray | List,
+#     s0: float = 1e-2,
+#     targ_tol: float = 1e-10,
+#     skip: int = 0,
+#     bisect_tol: float = 1e-5,
+#     bif_type: str | Tuple[int, int] | Tuple[int] = "tangent",
+#     debug: bool = False,
+#     scale: float = 5,
+# ) -> Tuple[NDArray, NDArray]:
+#     """Find bifurcation using Broucke stability
 
-    Args:
-        X0 (NDArray): initial control variables
-        f_df_stm_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
-        dir0 (NDArray | List): signed initial stepoff direction.
-        s0 (float, optional): initial step size. Defaults to 1e-2.
-        targ_tol (float, optional): tolerance for targetter convergence. Defaults to 1e-10.
-        skip (int, optional): number of crossings to skip. Defaults to 0.
-        bisect_tol (float, optional): Tolerance for bisection algorithm. Defaults to 1e-5.
-        bif_type (str, optional): bif_type of bifurcation to detect ("tangent", "hopf") OR
-            a tuple indicating period-multiplying bifurcation (e.g. (3,)
-            for tripling, (5,2) for quintupling with second harmonic). Defaults to "tangent".
-        debug (bool, optional): whether to print off function evaluations and steps
+#     Args:
+#         X0 (NDArray): initial control variables
+#         f_df_stm_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
+#         dir0 (NDArray | List): signed initial stepoff direction.
+#         s0 (float, optional): initial step size. Defaults to 1e-2.
+#         targ_tol (float, optional): tolerance for targetter convergence. Defaults to 1e-10.
+#         skip (int, optional): number of crossings to skip. Defaults to 0.
+#         bisect_tol (float, optional): Tolerance for bisection algorithm. Defaults to 1e-5.
+#         bif_type (str, optional): bif_type of bifurcation to detect ("tangent", "hopf") OR
+#             a tuple indicating period-multiplying bifurcation (e.g. (3,)
+#             for tripling, (5,2) for quintupling with second harmonic). Defaults to "tangent".
+#         debug (bool, optional): whether to print off function evaluations and steps
 
-    Returns:
-        NDArray: Bifurcation control variables, tangent vector
-    """
-    if isinstance(bif_type, tuple):
-        # Period multiplying
-
-        # generally, beta = a*alpha+b where a = -2cos(q2pi/n), 2-4cos^2(q2pi/n) for n-periodic and q\in 1..n/2
-        if len(bif_type) == 1:
-            n = bif_type[0]
-        elif len(bif_type) == 2:
-            n = bif_type[0] / bif_type[1]
-        else:
-            raise ValueError(
-                "Period-multiplying bifurcation type must be given as (n,) or (n,m)"
-            )
-        angle = 2 * np.pi / n
-        cos_val = np.cos(angle)
-        bisect_func = (
-            lambda alpha, beta: -2 * cos_val * alpha + (2 - 4 * cos_val**2) - beta
-        )
-    else:
-        match bif_type.lower():
-            case "tangent":
-                bisect_func = lambda alpha, beta: beta + 2 + 2 * alpha
-            case "hopf":
-                bisect_func = lambda alpha, beta: beta - alpha**2 / 4 - 2
-            case _:
-                raise NotImplementedError("womp womp")
-
-    X = np.array(X0) if isinstance(X0, list) else X0.copy()
-    tangent_prev = np.array(dir0) if isinstance(dir0, list) else dir0.copy()
-    s = s0
-
-    _, dF, stm = f_df_stm_func(X0)
-    svd = np.linalg.svd(dF)
-    tangent = svd.Vh[-1]
-
-    Xs = [X0]
-
-    alpha = 2 - np.trace(stm)
-    beta = 1 / 2 * (alpha**2 + 2 - np.trace(stm @ stm))
-    func_vals = [bisect_func(alpha, beta)]
-
-    while True:
-        if np.dot(tangent, tangent_prev) < 0:
-            tangent *= -1
-        X, dF, stm, _ = dc_tangent(
-            X, np.sign(s) * tangent, f_df_stm_func, abs(s), targ_tol
-        )
-
-        Xs.append(X.copy())
-        tangent_prev = tangent
-
-        # tangent = null_space(dF)
-        svd = np.linalg.svd(dF)
-        tangent = svd.Vh[-1]
-
-        alpha = 2 - np.trace(stm)
-        beta = 1 / 2 * (alpha**2 + 2 - np.trace(stm @ stm))
-
-        func_vals.append(bisect_func(alpha, beta))
-
-        if np.sign(func_vals[-1]) != np.sign(func_vals[-2]):
-            if skip == 0:
-                if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
-                    tangent = svd.Vh[-2]
-                    print(f"BIFURCATING @ X={X} in the direction of {tangent}")
-                    return X, tangent
-                else:  # search backward
-                    s /= -scale
-            else:
-                skip -= 1
-        if abs(func_vals[-1]) < bisect_tol:
-            tangent = svd.Vh[-2]
-            print(f"BIFURCATING @ X={X} in the direction of {tangent}")
-            return X, tangent
-
-        if debug:
-            print(func_vals[-1], func_vals[-2], s)  # , X)
-
-
-# def get_bifurcation_funcs(df, bif_type: tuple | str):
+#     Returns:
+#         NDArray: Bifurcation control variables, tangent vector
+#     """
 #     if isinstance(bif_type, tuple):
+#         # Period multiplying
+
+#         # generally, beta = a*alpha+b where a = -2cos(q2pi/n), 2-4cos^2(q2pi/n) for n-periodic and q\in 1..n/2
 #         if len(bif_type) == 1:
 #             n = bif_type[0]
 #         elif len(bif_type) == 2:
@@ -446,27 +357,53 @@ def find_bif(
 #             case _:
 #                 raise NotImplementedError("womp womp")
 
-#     params = [
-#         "Initial x",
-#         "Initial y",
-#         "Initial z",
-#         "Initial vx",
-#         "Initial vy",
-#         "Initial vz",
-#         "Period",
-#     ]
-#     for param in params:
-#         if param not in df.columns:
-#             df[param] = 0.0
+#     X = np.array(X0) if isinstance(X0, list) else X0.copy()
+#     tangent_prev = np.array(dir0) if isinstance(dir0, list) else dir0.copy()
+#     s = s0
 
-#     eig_df = df[[col for col in df.columns if "Eig" in col]]
-#     eigs = eig_df.values.astype(np.complex128)
-#     alpha = 2 - np.sum(eigs, axis=1).real
-#     beta = (alpha**2 - (np.sum(eigs**2, axis=1).real - 2)) / 2
+#     _, dF, stm = f_df_stm_func(X0)
+#     svd = np.linalg.svd(dF)
+#     tangent = svd.Vh[-1]
 
-#     beta_bifurcate = bisect_func(alpha, beta)
+#     Xs = [X0]
 
-#     func = beta - beta_bifurcate
-#     inds = df.index
-#     spline_dict = {param: UnivariateSpline(inds, df[param]) for param in params}
-#     return UnivariateSpline(inds, func), spline_dict
+#     alpha = 2 - np.trace(stm)
+#     beta = 1 / 2 * (alpha**2 + 2 - np.trace(stm @ stm))
+#     func_vals = [bisect_func(alpha, beta)]
+
+#     while True:
+#         if np.dot(tangent, tangent_prev) < 0:
+#             tangent *= -1
+#         X, dF, stm, _ = dc_tangent(
+#             X, np.sign(s) * tangent, f_df_stm_func, abs(s), targ_tol
+#         )
+
+#         Xs.append(X.copy())
+#         tangent_prev = tangent
+
+#         # tangent = null_space(dF)
+#         svd = np.linalg.svd(dF)
+#         tangent = svd.Vh[-1]
+
+#         alpha = 2 - np.trace(stm)
+#         beta = 1 / 2 * (alpha**2 + 2 - np.trace(stm @ stm))
+
+#         func_vals.append(bisect_func(alpha, beta))
+
+#         if np.sign(func_vals[-1]) != np.sign(func_vals[-2]):
+#             if skip == 0:
+#                 if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
+#                     tangent = svd.Vh[-2]
+#                     print(f"BIFURCATING @ X={X} in the direction of {tangent}")
+#                     return X, tangent
+#                 else:  # search backward
+#                     s /= -scale
+#             else:
+#                 skip -= 1
+#         if abs(func_vals[-1]) < bisect_tol:
+#             tangent = svd.Vh[-2]
+#             print(f"BIFURCATING @ X={X} in the direction of {tangent}")
+#             return X, tangent
+
+#         if debug:
+#             print(func_vals[-1], func_vals[-2], s)

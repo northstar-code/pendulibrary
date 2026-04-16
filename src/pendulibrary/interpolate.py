@@ -71,6 +71,8 @@ def interp_hermite(
             "can only interpolate vectors for now, so x and dxdt must be 2D"
         )
 
+    x = x.T.copy()
+    dxdt = dxdt.T.copy()
     if t_eval is None:
         if n_mult is not None:
             t_eval = np.empty((0,), np.float64)
@@ -101,7 +103,7 @@ def interp_hermite(
             newterms = Hermite_interp_interval(ts, t0, t1, x0, x1, dxdt0, dxdt1)
             x_eval = np.concatenate((x_eval, newterms))
 
-    return t_eval, x_eval
+    return t_eval, x_eval.T
 
 
 @njit(cache=True)
@@ -195,73 +197,3 @@ def integrate_interpolate(
             x_eval = np.concatenate((x_eval, newterms))
 
     return t_eval, x_eval.T
-
-
-@njit
-def interp_event(
-    x0: NDArray[np.floating],
-    x1: NDArray[np.floating],
-    t0: float,
-    t1: float,
-    F: NDArray[np.floating],
-    g0: float,
-    g1: float,
-    g: Callable[..., float],
-    event_index: int,
-    tol: float = 1e-12,
-    delta: float = 1e-10,
-    args: tuple = (),
-):
-    # Decker's (secant) method: https://en.wikipedia.org/wiki/Brent%27s_method
-    assert g0 * g1 < 0
-    a, b = t0, t1
-    ga, gb = g0, g1
-    xa, xb = x0.copy(), x1.copy()
-    if abs(g0) < abs(g1):
-        a, b = b, a
-        ga, gb = gb, ga
-    c = a
-    mflag = True
-    gc = ga
-    d = 0.0
-    while True:
-        if np.abs(ga - gc) < 1e-16 and np.abs(gb - gc) < 1e-16:
-            s = (
-                a * ga * gc / ((ga - gb) * (ga - gc))
-                + b * gb * gc / ((gb - ga) * (gb - gc))
-                + c * ga * gc / ((gc - ga) * (gc - gb))
-            )
-        else:
-            s = b - gb * (b - a) / (gb - ga)
-        if (
-            (not (((3 * a + b) / 4 <= s <= b) or ((3 * a + b) / 4 >= s >= b)))
-            or (mflag and np.abs(s - b) >= np.abs(b - c) / 2)
-            or (not mflag and np.abs(s - b) >= np.abs(c - d) / 2)
-            or (mflag and np.abs(b - c) < np.abs(delta))
-            or (mflag and np.abs(c - d) < np.abs(delta))
-        ):
-            s = (a + b) / 2
-            mflag = True
-        else:
-            mflag = False
-
-        xs = integrate_interp_step(np.array([s]), x0, t0, t1, F)[0]
-
-        gs = g(event_index, s, xs, args)
-        d = c
-        c = b
-        if ga * gs < 0:
-            b = s
-            xb = xs.copy()
-            gb = gs
-        else:
-            a = s
-            xa = xs.copy()
-            ga = gs
-        if np.abs(ga) < np.abs(gb):
-            a, b = b, a
-            xa, xb = xb.copy(), xa.copy()
-            ga, gb = gb, ga
-
-        if np.abs(gb) < tol or np.abs(gs) < tol or np.abs(b - a) < tol:
-            return s, xs
