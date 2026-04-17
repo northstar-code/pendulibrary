@@ -156,12 +156,13 @@ def stm_eom(
     out[3] = d2
 
     # %% STM derivatives
-    A = get_A_raw(state[:4], Lr, Mr)
+    # A = get_A_raw(state[:4], Lr, Mr)
+    A = get_A(state[:4], sinDth, cosDth, Lr, Mr)
     for row in range(4):
         for col in range(4):
             s = 0.0
             for i in range(4):
-                s += stm_comps[row * 4 + i] * A[i, col]
+                s += A[row, i] * stm_comps[col + 4 * i]
             out[4 + row * 4 + col] = s
 
     return out

@@ -4,6 +4,8 @@ from scipy.linalg import expm
 from pendulibrary.common_targetters import single_fixed
 from pendulibrary.targeter import dc_underconstrained
 
+# find somewhere better for these functions probably
+
 
 def get_x0_linear(
     th1_0: float,
@@ -11,9 +13,7 @@ def get_x0_linear(
     Lr: float,
     Mr: float,
     step: float = 1e-8,
-    int_tol: float = 1e-14,
 ):
-    th0s = [th1_0, th2_0]
 
     Xref = np.array([th1_0, th2_0, 0.0, 0.0])
     A = get_A_raw(Xref, Lr, Mr)  # linearized dynamics near origin
@@ -62,7 +62,7 @@ def get_x0_corrected(
     th0s = [th1_0, th2_0]
 
     Xref = np.array([th1_0, th2_0, 0.0, 0.0])
-    A = get_A_raw(Xref, Lr, Mr)  # linearized dynamics near origin
+    A = get_A_raw(Xref, Lr, Mr)
 
     # both frequencies
     ws = np.linalg.eigvals(A)
@@ -89,12 +89,10 @@ def get_x0_corrected(
         x0 *= step
         x0 += Xref
 
-        print(x0)
-
         targ = single_fixed(
             ind_fixed=force_0,
             val_fixed=0.0 + th0s[force_0],
-            ind_no_enforce=0,
+            ind_no_enforce=2,
             Lr=Lr,
             Mr=Mr,
             int_tol=int_tol,
@@ -102,7 +100,6 @@ def get_x0_corrected(
         func = targ.f_df_stm
         X, dF, _ = dc_underconstrained(targ.get_X(x0, T), func, 1e-12, debug=False)
         x0, T = targ.get_x0(X), targ.get_period(X)
-        print(x0)
         tangent = np.linalg.svd(dF).Vh[-1]
 
         Ts.append(T)
