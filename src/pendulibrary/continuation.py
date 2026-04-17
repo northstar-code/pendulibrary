@@ -154,6 +154,7 @@ def adaptive_cont(
     eig_vals = [np.linalg.eigvals(stm)]
     tangents = [tangent.copy()]
     DFs = [dF]
+    stms = [stm]
     # s_vals = [0.0]
 
     bar = tqdm(total=S)
@@ -208,6 +209,7 @@ def adaptive_cont(
             tangents.append(tangent)
             eig_vals.append(np.linalg.eigvals(stm))
             DFs.append(dF)
+            stms.append(stm)
             arclen += s
 
             tangent_prev = tangent
@@ -253,4 +255,8 @@ def adaptive_cont(
         bar.set_postfix_str(f"{err_name}: {err_text}, premature termination")
     bar.close()
 
-    return np.array(Xs), np.array(eig_vals), (np.array(DFs), np.array(tangents))
+    return (
+        np.array(Xs),
+        np.array(eig_vals),
+        (np.array(DFs), np.array(tangents), np.array(stms)),
+    )
