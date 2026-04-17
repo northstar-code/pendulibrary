@@ -32,8 +32,8 @@ def get_x0_linear(
         vals = eigs.eigenvalues
         e1, e2 = eigs.eigenvectors[:, np.abs(vals - 1) < 1e-10].T
 
-        force_0 = 0 if np.abs(e1[0]) > 0 and np.abs(e2[0]) > 0 else 1
-        if np.iscomplex(e1[0]):
+        force_0 = 0 if np.abs(e1[0]) > np.abs(e1[1]) and np.abs(e2[0]) > np.abs(e2[1]) else 1
+        if np.any(np.iscomplex(e1)):
             x0 = np.imag(e1 / e1[force_0])
         else:
             x0 = np.real(e1 / e1[force_0] - e2 / e2[force_0])
@@ -79,8 +79,8 @@ def get_x0_corrected(
         vals = eigs.eigenvalues
         e1, e2 = eigs.eigenvectors[:, np.abs(vals - 1) < 1e-10].T
 
-        force_0 = 0 if np.abs(e1[0]) > 0 and np.abs(e2[0]) > 0 else 1
-        if np.iscomplex(e1[0]):
+        force_0 = 0 if np.abs(e1[0]) > np.abs(e1[1]) and np.abs(e2[0]) > np.abs(e2[1]) else 1
+        if np.any(np.iscomplex(e1)):
             x0 = np.imag(e1 / e1[force_0])
         else:
             x0 = np.real(e1 / e1[force_0] - e2 / e2[force_0])
@@ -98,7 +98,7 @@ def get_x0_corrected(
             int_tol=int_tol,
         )
         func = targ.f_df_stm
-        X, dF, _ = dc_underconstrained(targ.get_X(x0, T), func, 1e-12, debug=False)
+        X, dF, _ = dc_underconstrained(targ.get_X(x0, T), func, 1e-12, debug=True)
         x0, T = targ.get_x0(X), targ.get_period(X)
         tangent = np.linalg.svd(dF).Vh[-1]
 
