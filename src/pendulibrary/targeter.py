@@ -1,5 +1,5 @@
 from pendulibrary.integrate import *
-
+from typing import Callable
 
 def dc_tangent(
     X_prev: NDArray,

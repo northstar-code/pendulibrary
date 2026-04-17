@@ -8,9 +8,7 @@ from numba import types
 
 
 @njit(cache=True)
-def eom(
-    _, state: NDArray[np.floating], Lr: float = 1.0, Mr: float = 1.0
-) -> NDArray[np.floating]:
+def eom(_, state: NDArray[np.floating], Lr: float, Mr: float) -> NDArray[np.floating]:
     th1, th2, dth1, dth2 = state[0], state[1], state[2], state[3]
     Dth = th1 - th2
 
@@ -44,7 +42,7 @@ def eom(
 
 
 @njit(cache=True)
-def get_A_raw(state: np.ndarray, Lr: float = 1.0, Mr: float = 1.0):
+def get_A_raw(state: np.ndarray, Lr: float, Mr: float):
     Dth = state[0] - state[1]
 
     sinDth = np.sin(Dth)
@@ -53,7 +51,7 @@ def get_A_raw(state: np.ndarray, Lr: float = 1.0, Mr: float = 1.0):
 
 
 @njit(cache=True)
-def get_A(state: np.ndarray, sinDth, cosDth, Lr: float = 1.0, Mr: float = 1.0):
+def get_A(state: np.ndarray, sinDth, cosDth, Lr: float, Mr: float):
     th1, th2, dth1, dth2 = state
 
     Dth = th1 - th2
@@ -118,7 +116,7 @@ def get_A(state: np.ndarray, sinDth, cosDth, Lr: float = 1.0, Mr: float = 1.0):
 
 @njit(cache=True)
 def stm_eom(
-    _, state: NDArray[np.floating], Lr: float = 1.0, Mr: float = 1.0
+    _, state: NDArray[np.floating], Lr: float, Mr: float
 ) -> NDArray[np.floating]:
     out = np.empty(20)
 
@@ -158,7 +156,7 @@ def stm_eom(
     out[3] = d2
 
     # %% STM derivatives
-    A = get_A(state[:4], Lr, Mr)
+    A = get_A_raw(state[:4], Lr, Mr)
     for row in range(4):
         for col in range(4):
             s = 0.0

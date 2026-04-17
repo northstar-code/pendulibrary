@@ -3,9 +3,8 @@ from numpy.typing import NDArray
 import numpy as np
 from numba import float64 as nbfloat64
 from numba.typed import List as nbList
-from typing import Tuple, Callable, List
+from typing import Tuple
 import pendulibrary.DOP853_coefs as coefs
-from pendulibrary.interpolate import integrate_interpolate
 from pendulibrary.common import eom, stm_eom
 
 # TODO: hardcode the dynamics function in
@@ -335,9 +334,9 @@ from pendulibrary.common import eom, stm_eom
 def integrate_state(
     x0: NDArray,
     tf: float,
+    Lr: float,
+    Mr: float,
     int_tol: float = 1e-12,
-    Lr: float = 1.0,
-    Mr: float = 1.0,
     init_step: float = 1.0,
 ) -> Tuple[NDArray[np.floating], NDArray[np.floating], NDArray[np.floating]]:
     atol = rtol = int_tol
@@ -423,9 +422,9 @@ def integrate_state(
 def integrate_state_stm(
     x0: NDArray,
     tf: float,
+    Lr: float,
+    Mr: float,
     int_tol: float = 1e-12,
-    Lr: float = 1.0,
-    Mr: float = 1.0,
     init_step: float = 1.0,
 ) -> Tuple[NDArray[np.floating], NDArray[np.floating]]:
     atol = rtol = int_tol
@@ -474,10 +473,10 @@ def integrate_state_stm(
         scale = atol + np.maximum(np.abs(x), np.abs(xnew)) * rtol
         err5 = np.dot(K.T, coefs.E5) / scale
         err3 = np.dot(K.T, coefs.E3) / scale
-        err5_norm_2 = 0
+        err5_norm_2 = 0.0
         for comp in err5:
             err5_norm_2 += comp**2
-        err3_norm_2 = 0
+        err3_norm_2 = 0.0
         for comp in err3:
             err3_norm_2 += comp**2
         denom = err5_norm_2 + 0.01 * err3_norm_2

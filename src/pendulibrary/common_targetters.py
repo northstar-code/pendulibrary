@@ -92,7 +92,7 @@ class single_fixed(Targetter):
     def f_df_stm(self, X: np.ndarray):
         x0 = self.get_x0(X)
         period = self.get_period(X)
-        _, ys = integrate_state_stm(x0, period, self.int_tol, self.Lr, self.Mr)
+        _, ys = integrate_state_stm(x0, period, self.Lr, self.Mr, self.int_tol)
         xf, stm = ys[:4, -1], ys[4:, -1].reshape(4, 4)
         xf = np.array(xf)
         eomf = eom(0.0, xf, self.Lr, self.Mr)

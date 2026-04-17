@@ -1,6 +1,6 @@
 from pendulibrary.targeter import *
 from warnings import warn
-from typing import List
+from typing import List, Callable
 from tqdm.auto import tqdm
 
 
@@ -149,7 +149,6 @@ def adaptive_cont(
     _, dF, stm = f_df_stm_func(X0)
     svd = np.linalg.svd(dF)
     tangent = tangent_prev.copy() if exact_tangent else svd.Vh[-1]
-    print(tangent)
 
     Xs = [X0]
     eig_vals = [np.linalg.eigvals(stm)]
@@ -170,10 +169,18 @@ def adaptive_cont(
             bar.set_description(f"s: {s:.3e}")
             try:
                 X, dF, stm, niters = dc_tangent(
-                    X, tangent, f_df_stm_func, s, tol, max_iter=max_iter, debug=False
+                    X,
+                    tangent,
+                    f_df_stm_func,
+                    s,
+                    tol,
+                    max_iter=max_iter,
+                    max_step=s,
+                    debug=False,
                 )
             except KeyboardInterrupt as err:
                 bar.set_postfix_str("KeyboardInterrupt, premature termination")
+                bar.close()
                 break
             except RuntimeError as err:
                 if "max iterations" in str(err):
@@ -195,6 +202,7 @@ def adaptive_cont(
                 # s_vals.pop()
                 X = Xs[-1]
                 tangent = tangent_prev.copy()
+                continue
 
             Xs.append(X)
             tangents.append(tangent)
