@@ -97,10 +97,10 @@ def get_x0_corrected(
             Mr=Mr,
             int_tol=int_tol,
         )
-        func = targ.f_df_stm
-        X, dF, _ = dc_underconstrained(targ.get_X(x0, T), func, 1e-12, debug=True)
+        func = targ.g_dg_stm
+        X, dG, _ = dc_underconstrained(targ.get_X(x0, T), func, 1e-12, debug=False)
         x0, T = targ.get_x0(X), targ.get_period(X)
-        tangent = np.linalg.svd(dF).Vh[-1]
+        tangent = np.linalg.svd(dG).Vh[-1]
 
         Ts.append(T)
         x0s.append(x0.copy())

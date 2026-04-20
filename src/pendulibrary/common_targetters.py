@@ -39,15 +39,15 @@ class Targetter(ABC):
         pass
 
     @abstractmethod
-    def DF(self, *args, **kwargs) -> np.ndarray:
+    def DG(self, *args, **kwargs) -> np.ndarray:
         pass
 
     @abstractmethod
-    def f(self, *args, **kwargs) -> np.ndarray:
+    def g(self, *args, **kwargs) -> np.ndarray:
         pass
 
     @abstractmethod
-    def f_df_stm(
+    def g_dg_stm(
         self, X: np.ndarray, *args, **kwargs
     ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         pass
@@ -80,24 +80,23 @@ class single_fixed(Targetter):
     def get_period(self, X: np.ndarray):
         return X[-1]
 
-    def DF(self, stm: np.ndarray, eomf: np.ndarray):
-        dF = np.hstack((stm - np.eye(4), eomf[:, None]))
-        dF = np.delete(dF, self.ind_fixed, 1)
-        dF = np.delete(dF, self.ind_no_enforce, 0)
-        return dF
+    def DG(self, stm: np.ndarray, eomf: np.ndarray):
+        dG = np.hstack((stm - np.eye(4), eomf[:, None]))
+        dG = np.delete(dG, self.ind_fixed, 1)
+        dG = np.delete(dG, self.ind_no_enforce, 0)
+        return dG
 
-    def f(self, x0: np.ndarray, xf: np.ndarray):
+    def g(self, x0: np.ndarray, xf: np.ndarray):
         return np.delete(xf - x0, self.ind_no_enforce)
 
-    def f_df_stm(self, X: np.ndarray):
+    def g_dg_stm(self, X: np.ndarray):
         x0 = self.get_x0(X)
         period = self.get_period(X)
         _, ys = integrate_state_stm(x0, period, self.Lr, self.Mr, self.int_tol)
-        xf, stm = ys[:4, -1], ys[4:, -1].reshape(4, 4)
-        xf = np.array(xf)
+        xf, stm = ys[:4, -1].copy(), ys[4:, -1].reshape(4, 4)
         eomf = eom(0.0, xf, self.Lr, self.Mr)
 
-        dF = self.DF(stm, eomf)
-        f = self.f(x0, xf)
+        dG = self.DG(stm, eomf)
+        g = self.g(x0, xf)
 
-        return f, dF, stm
+        return g, dG, stm
