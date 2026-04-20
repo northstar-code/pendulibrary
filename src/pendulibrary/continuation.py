@@ -114,6 +114,7 @@ def adaptive_cont(
     reduce_reverse: float = 2.0,
     exp_direction: float = 10.0,
     exp_iters: float = 0.3,
+    max_step: float | None = None,
     exact_tangent: bool = False,
 ) -> Tuple[List, List, Tuple[List, List]]:
     """Custom arclength-based continuation wrapper with variable step size. This modified algorithm has a full step size of s, rather than projected step size.
@@ -237,6 +238,9 @@ def adaptive_cont(
                 break
 
             s *= (target_iter / niters) ** exp_iters * dprod_check**exp_direction
+            if max_step is not None and s > max_step:
+                s = max_step
+
             if niters <= target_iter:
                 s *= rate
 
