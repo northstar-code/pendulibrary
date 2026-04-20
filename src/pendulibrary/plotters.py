@@ -61,11 +61,12 @@ def plot_timeline_grid(
     Tf = ts_preprop[-1]
     N = nrow * ncol
     _, xs_interp = interp_hermite(
-        ts_preprop, xs_preprop, fs_preprop, np.linspace(0, Tf, N, False)
+        ts_preprop, xs_preprop, fs_preprop, np.linspace(0, Tf, N, True)
     )
+    _, xs_dense = interp_hermite(ts_preprop, xs_preprop, fs_preprop, n_mult=5)
 
     t1, t2 = xs_interp[:2]
-    t1_dense, t2_dense = xs_preprop[:2]
+    t1_dense, t2_dense = xs_dense[:2]
 
     fig, axs_grid = plt.subplots(nrow, ncol, figsize=(4 * ncol, 6 * nrow))
     axs = axs_grid.ravel()
