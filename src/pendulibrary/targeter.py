@@ -1,6 +1,7 @@
 from pendulibrary.integrate import *
 from typing import Callable
 
+
 def dc_tangent(
     X_prev: NDArray,
     tangent: NDArray,
@@ -32,22 +33,22 @@ def dc_tangent(
         fudge = 1.0
 
     nX = len(X)
-    dF = np.empty((nX - 1, nX))
+    dG = np.empty((nX - 1, nX))
     stm_full = np.empty((nX, nX))
 
-    G = np.array([np.inf] * nX)
+    Gprime = np.array([np.inf] * nX)
     niters = 0
     dX = np.array([np.inf] * nX)
-    while np.linalg.norm(G) > tol and np.linalg.norm(dX) > tol:
+    while np.linalg.norm(Gprime) > tol and np.linalg.norm(dX) > tol:
         if max_iter is not None and niters > max_iter:
             raise RuntimeError("Reached max iterations")
-        f, dF, stm_full = f_df_func(X)
+        g, dG, stm_full = f_df_func(X)
         delta = X - X_prev
-        lastG = np.dot(delta, delta) - s**2
-        lastDG = 2 * delta
-        G = np.array([*f, lastG])
-        dG = np.vstack((dF, lastDG))
-        dX = -np.linalg.inv(dG) @ G
+        lastGprime = np.dot(delta, delta) - s**2
+        lastDGprime = 2 * delta
+        Gprime = np.array([*g, lastGprime])
+        dGprime = np.vstack((dG, lastDGprime))
+        dX = -np.linalg.inv(dGprime) @ Gprime
         if max_step is not None and np.linalg.norm(dX) > max_step:
             dX *= max_step / np.linalg.norm(dX)
         X += dX * fudge
@@ -55,12 +56,12 @@ def dc_tangent(
             print(niters, dX)
         niters += 1
 
-    return X, dF, stm_full, niters
+    return X, dG, stm_full, niters
 
 
 def dc_square(
     X_guess: NDArray,
-    f_df_func: Callable,
+    g_dg_func: Callable,
     tol: float = 1e-8,
     fudge: float = 1.0,
     max_step: float | None = None,
@@ -86,17 +87,17 @@ def dc_square(
     X = X_guess.copy()
 
     nX = len(X)
-    dF = np.empty((nX, nX))
+    dG = np.empty((nX, nX))
     stm_full = np.empty((nX, nX))
 
-    f = np.array([np.inf] * nX)
+    g = np.array([np.inf] * nX)
     niters = 0
     dX = np.array([np.inf] * nX)
-    while np.linalg.norm(f) > tol and np.linalg.norm(dX) > tol:
+    while np.linalg.norm(g) > tol and np.linalg.norm(dX) > tol:
         if max_iter is not None and niters > max_iter:
             raise RuntimeError("Exceeded maximum iterations")
-        f, dF, stm_full = f_df_func(X)
-        dX = -np.linalg.inv(dF) @ f
+        g, dG, stm_full = g_dg_func(X)
+        dX = -np.linalg.inv(dG) @ g
         if max_step is not None and np.linalg.norm(dX) > max_step:
             dX *= max_step / np.linalg.norm(dX)
         X += fudge * dX
@@ -104,12 +105,12 @@ def dc_square(
         if debug:
             print(dX)
 
-    return X, dF, stm_full
+    return X, dG, stm_full
 
 
 def dc_underconstrained(
     X_guess: NDArray,
-    f_df_func: Callable,
+    g_dg_func: Callable,
     tol: float = 1e-8,
     fudge: float = 1.0,
     max_step: float | None = None,
@@ -132,17 +133,17 @@ def dc_underconstrained(
     """
     X = X_guess.copy()
     nX = len(X_guess)
-    dF = np.empty((nX, nX))
+    dG = np.empty((nX, nX))
     stm_full = np.empty((nX, nX))
 
-    f = np.array([np.inf] * nX)
+    g = np.array([np.inf] * nX)
     niters = 0
     dX = np.array([np.inf] * nX)
-    while np.linalg.norm(f) > tol and np.linalg.norm(dX) > tol:
+    while np.linalg.norm(g) > tol and np.linalg.norm(dX) > tol:
         if max_iter is not None and niters > max_iter:
             raise RuntimeError("Exceeded maximum iterations")
-        f, dF, stm_full = f_df_func(X)
-        dX = -np.linalg.pinv(dF) @ f
+        g, dG, stm_full = g_dg_func(X)
+        dX = -np.linalg.pinv(dG) @ g
         if max_step is not None and np.linalg.norm(dX) > max_step:
             dX *= max_step / np.linalg.norm(dX)
         X += fudge * dX
@@ -150,4 +151,4 @@ def dc_underconstrained(
         if debug:
             print(dX)
 
-    return X, dF, stm_full
+    return X, dG, stm_full

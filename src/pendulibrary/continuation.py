@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 
 def fixed_step_cont(
     X0: NDArray,
-    f_df_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
+    g_dg_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
     dir0: NDArray | List,
     s: float = 1e-3,
     S: float = 0.5,
@@ -41,7 +41,7 @@ def fixed_step_cont(
     X = X0.copy()
     tangent_prev = dir0 / np.linalg.norm(dir0)
 
-    _, dF, stm = f_df_stm_func(X0)
+    _, dF, stm = g_dg_stm_func(X0)
     svd = np.linalg.svd(dF)
     tangent = dir0.copy() if exact_tangent else svd.Vh[-1]
 
@@ -65,7 +65,7 @@ def fixed_step_cont(
             X, dF, stm, _ = dc_tangent(
                 X,
                 tangent,
-                f_df_stm_func,
+                g_dg_stm_func,
                 s,
                 tol,
                 max_iter=max_iter,
@@ -101,7 +101,7 @@ def fixed_step_cont(
 
 def adaptive_cont(
     X0: NDArray,
-    f_df_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
+    g_dg_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
     dir0: NDArray | List,
     s0: float = 1e-2,
     s_min: float = 1e-3,
@@ -116,7 +116,7 @@ def adaptive_cont(
     exp_iters: float = 0.3,
     max_step: float | None = None,
     exact_tangent: bool = False,
-) -> Tuple[List, List, Tuple[List, List]]:
+) -> Tuple[np.ndarray, np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Custom arclength-based continuation wrapper with variable step size. This modified algorithm has a full step size of s, rather than projected step size.
     At each step, the step size multiplies by num_iters/num_iters_previous, in so that if it takes longer to converge we reduce the step size
     At each step, the step size also multiplies by the dot product between the tangent vector and the step; if this dot product is close to 1, then the curve is not sharp and step size wont be reduced. Else, it will.
@@ -147,7 +147,7 @@ def adaptive_cont(
     X = X0.copy()
     tangent_prev = dir0 / np.linalg.norm(dir0)
 
-    _, dF, stm = f_df_stm_func(X0)
+    _, dF, stm = g_dg_stm_func(X0)
     svd = np.linalg.svd(dF)
     tangent = tangent_prev.copy() if exact_tangent else svd.Vh[-1]
 
@@ -173,7 +173,7 @@ def adaptive_cont(
                 X, dF, stm, niters = dc_tangent(
                     X,
                     tangent,
-                    f_df_stm_func,
+                    g_dg_stm_func,
                     s,
                     tol,
                     max_iter=max_iter,
@@ -264,3 +264,100 @@ def adaptive_cont(
         np.array(eig_vals),
         (np.array(DFs), np.array(tangents), np.array(stms)),
     )
+
+
+def find_bifurcation(
+    X0: np.ndarray | List,
+    g_dg_stm_func: Callable[[np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]],
+    tan0: np.ndarray | List,
+    s0: float = 1e-3,
+    targ_tol: float = 1e-13,
+    bisect_tol: float = 1e-5,
+    period_mult: float = 1,
+    debug: bool = False,
+    scale: float = 5,
+    seek_local_opt: bool = False,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Find bifurcation using Broucke stability
+
+    Args:
+        X0 (NDArray): initial control variables
+        f_df_stm_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
+        dir0 (NDArray | List): signed initial stepoff direction.
+        s0 (float, optional): initial step size. Defaults to 1e-2.
+        targ_tol (float, optional): tolerance for targetter convergence. Defaults to 1e-10.
+        skip (int, optional): number of crossings to skip. Defaults to 0.
+        bisect_tol (float, optional): Tolerance for bisection algorithm. Defaults to 1e-5.
+        bif_type (str, optional): bif_type of bifurcation to detect ("tangent", "hopf") OR
+            a tuple indicating period-multiplying bifurcation (e.g. (3,)
+            for tripling, (5,2) for quintupling with second harmonic). Defaults to "tangent".
+        debug (bool, optional): whether to print off function evaluations and steps
+
+    Returns:
+        NDArray: Bifurcation control variables, tangent vector
+    """
+    if seek_local_opt:
+        assert scale > 4
+    nu_target = 2 * np.cos(2 * np.pi / period_mult)
+    bisect_func = lambda eigs: np.sum(eigs).real - 2 - nu_target
+
+    X = np.array(X0) if isinstance(X0, list) else X0.copy()
+    tangent_prev = tan0.copy()
+    s = s0
+
+    _, dG, stm = g_dg_stm_func(X)
+    svd = np.linalg.svd(dG)
+    tangent = svd.Vh[-1]
+
+    Xs = [X0]
+    eigs = np.linalg.eigvals(stm)
+
+    func_vals = [bisect_func(eigs)]
+
+    counter = 0
+    counter_detected = 0
+
+    waiting_switch = False
+
+    while True:
+        if np.dot(tangent, tangent_prev) < 0:
+            tangent *= -1
+        X, dG, stm, _ = dc_tangent(
+            X, np.sign(s) * tangent, g_dg_stm_func, abs(s), targ_tol, max_step=abs(s)
+        )
+
+        Xs.append(X.copy())
+        tangent_prev = tangent.copy()
+
+        svd = np.linalg.svd(dG)
+        tangent = svd.Vh[-1]
+
+        func_vals.append(bisect_func(np.linalg.eigvals(stm)))
+
+        local_opt = len(func_vals) >= 3 and (
+            np.sign(np.abs(func_vals[-1]) - np.abs(func_vals[-2]))
+            != np.sign(np.abs(func_vals[-2]) - np.abs(func_vals[-3]))
+        )
+        if seek_local_opt and local_opt and not waiting_switch:
+            counter_detected = counter
+            waiting_switch = True
+
+        if np.sign(func_vals[-1]) != np.sign(func_vals[-2]) or (
+            waiting_switch and counter == counter_detected + 3
+        ):
+            waiting_switch = False
+            if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
+                tangent = svd.Vh[-2]
+                print(f"BIFURCATING @ X={X} in the direction of {tangent}")
+                return X, tangent
+            else:  # search backward
+                s /= -scale
+        if abs(func_vals[-1]) < bisect_tol:
+            tangent = svd.Vh[-2]
+            print(f"BIFURCATING @ X={X} in the direction of {tangent}")
+            return X, tangent
+
+        counter += 1
+
+        if debug:
+            print(func_vals[-1], func_vals[-2], s, counter, counter_detected)
