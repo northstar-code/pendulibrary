@@ -55,8 +55,8 @@ def plot_timeline_grid(
     ts_preprop: np.ndarray,
     fs_preprop: np.ndarray,
     Lr: float,
-    nrow: int = 4,
-    ncol: int = 7,
+    nrow: int = 2,
+    ncol: int = 10,
 ):
     Tf = ts_preprop[-1]
     N = nrow * ncol
