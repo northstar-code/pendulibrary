@@ -277,7 +277,7 @@ def find_bifurcation(
     debug: bool = False,
     scale: float = 5,
     seek_local_opt: bool = False,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> np.ndarray:
     """Find bifurcation using Broucke stability
 
     Args:
@@ -314,18 +314,15 @@ def find_bifurcation(
 
     func_vals = [bisect_func(eigs)]
 
+    switch_loc = False
     counter = 0
-    counter_detected = 0
-
-    waiting_switch = False
-
     while True:
         if np.dot(tangent, tangent_prev) < 0:
             tangent *= -1
         X, dG, stm, _ = dc_tangent(
             X, np.sign(s) * tangent, g_dg_stm_func, abs(s), targ_tol, max_step=abs(s)
         )
-
+        counter += 1
         Xs.append(X.copy())
         tangent_prev = tangent.copy()
 
@@ -334,30 +331,33 @@ def find_bifurcation(
 
         func_vals.append(bisect_func(np.linalg.eigvals(stm)))
 
-        local_opt = len(func_vals) >= 3 and (
-            np.sign(np.abs(func_vals[-1]) - np.abs(func_vals[-2]))
-            != np.sign(np.abs(func_vals[-2]) - np.abs(func_vals[-3]))
+        # if we have >3 vals and none of the last 3 are nan and the dif from the previous two is different
+        local_opt = (
+            len(func_vals) >= 3
+            and (not np.any(np.isnan(func_vals[-3:])))
+            and (
+                np.sign(func_vals[-1] - func_vals[-2])
+                != np.sign(func_vals[-2] - func_vals[-3])
+            )
         )
-        if seek_local_opt and local_opt and not waiting_switch:
-            counter_detected = counter
-            waiting_switch = True
+        if seek_local_opt and local_opt:
+            switch_loc = True
 
-        if np.sign(func_vals[-1]) != np.sign(func_vals[-2]) or (
-            waiting_switch and counter == counter_detected + 3
+        if (not np.any(np.isnan(func_vals[-3:]))) and (
+            (np.sign(func_vals[-1]) != np.sign(func_vals[-2])) or (switch_loc)
         ):
-            waiting_switch = False
             if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
-                tangent = svd.Vh[-2]
-                print(f"BIFURCATING @ X={X} in the direction of {tangent}")
-                return X, tangent
+                X = Xs[np.nanargmin(np.abs(func_vals))]
+                return X
             else:  # search backward
                 s /= -scale
+            if switch_loc:
+                switch_loc = False
+                Xs.append(np.nan)
+                func_vals.append(np.nan)
         if abs(func_vals[-1]) < bisect_tol:
-            tangent = svd.Vh[-2]
-            print(f"BIFURCATING @ X={X} in the direction of {tangent}")
-            return X, tangent
-
-        counter += 1
+            X = Xs[np.nanargmin(np.abs(func_vals))]
+            return X
 
         if debug:
-            print(func_vals[-1], func_vals[-2], s, counter, counter_detected)
+            print(func_vals[-1], func_vals[-2], s)

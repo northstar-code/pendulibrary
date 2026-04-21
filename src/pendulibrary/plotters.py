@@ -264,6 +264,8 @@ def compare_fams(
             for ii in range(jj + 1):
                 axs[jj, ii].plot(Xs[ii + 1], Xs[jj], c=colrs[j])
 
+        axs[0, 0].plot(np.nan, np.nan, c=colrs[j], label=fname)
+
     for jj in range(3):
         for ii in range(jj + 1):
             axs[jj, ii].plot(Xs_new[:, ii + 1], Xs_new[:, jj], ".k")
@@ -275,7 +277,9 @@ def compare_fams(
             #     axs[jj, ii].set(xticklabels=[])
 
     for jj in range(3):
-        axs[jj, 0].set(ylabel=f"$X_{jj+1}$")
-        axs[-1, jj].set(xlabel=f"$X_{jj}$")
+        axs[jj, 0].set(ylabel=f"$X_{jj}$")
+        axs[-1, jj].set(xlabel=f"$X_{jj+1}$")
+    fig.legend()
+    # axlg.set_axis_off()
     fig.tight_layout()
     return fig
