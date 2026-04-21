@@ -237,11 +237,15 @@ def plot_nu_functions(
 
 
 def compare_fams(
-    Xs_new: np.ndarray, fam_names: list, cmap: str = "hsv", figsize: tuple = (10, 10)
+    Xs_new: np.ndarray,
+    fam_names: list,
+    cmap: str = "hsv",
+    figsize: tuple = (6, 6),
+    ind_skip: int = 0,
 ):
-    fig, axs = plt.subplots(4, 4)
+    fig, axs = plt.subplots(3, 3, figsize=figsize, sharex="col", sharey="row")
 
-    for jj in range(4):
+    for jj in range(3):
         for ii in range(jj):
             axs[-jj - 1, -ii - 1].remove()
 
@@ -254,16 +258,24 @@ def compare_fams(
         x0s = data["x0s"]
         periods = data["periods"]
         Xs = np.column_stack((x0s, periods)).T
-        for jj in range(4):
+        Xs = np.delete(Xs, ind_skip, 0)
+        # Xs = np.delete(Xs, 0, 0)
+        for jj in range(3):
             for ii in range(jj + 1):
-                axs[jj, ii].plot(Xs[jj], Xs[ii + 1], c=colrs[j])
+                axs[jj, ii].plot(Xs[ii + 1], Xs[jj], c=colrs[j])
 
-    for jj in range(4):
+    for jj in range(3):
         for ii in range(jj + 1):
-            axs[jj, ii].plot(Xs_new[:, jj], Xs_new[:, ii + 1], ".k")
-            if ii != 0:
-                axs[jj,ii].set(yticklabels=[])
-            if jj != 3:
-                axs[jj,ii].set(xticklabels=[])
+            axs[jj, ii].plot(Xs_new[:, ii + 1], Xs_new[:, jj], ".k")
+            axs[jj, ii].plot(Xs_new[-1, ii + 1], Xs_new[-1, jj], "xk")
+            axs[jj, ii].plot(Xs_new[0, ii + 1], Xs_new[0, jj], "ok")
+            # if ii != 0:
+            #     axs[jj, ii].set(yticklabels=[])
+            # if jj != 2:
+            #     axs[jj, ii].set(xticklabels=[])
+
+    for jj in range(3):
+        axs[jj, 0].set(ylabel=f"$X_{jj+1}$")
+        axs[-1, jj].set(xlabel=f"$X_{jj}$")
     fig.tight_layout()
     return fig
