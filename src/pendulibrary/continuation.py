@@ -343,21 +343,21 @@ def find_bifurcation(
         if seek_local_opt and local_opt:
             switch_loc = True
 
+        if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
+            X = Xs[np.nanargmin(np.abs(func_vals))]
+            return X
         if (not np.any(np.isnan(func_vals[-3:]))) and (
             (np.sign(func_vals[-1]) != np.sign(func_vals[-2])) or (switch_loc)
         ):
-            if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
-                X = Xs[np.nanargmin(np.abs(func_vals))]
-                return X
-            else:  # search backward
-                s /= -scale
+            # if abs(func_vals[-1]) < bisect_tol or abs(s) < bisect_tol:
+            #     X = Xs[np.nanargmin(np.abs(func_vals))]
+            #     return X
+            # else:  # search backward
+            s /= -scale
             if switch_loc:
                 switch_loc = False
                 Xs.append(np.nan)
                 func_vals.append(np.nan)
-        if abs(func_vals[-1]) < bisect_tol:
-            X = Xs[np.nanargmin(np.abs(func_vals))]
-            return X
 
         if debug:
             print(func_vals[-1], func_vals[-2], s)

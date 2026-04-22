@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 from pendulibrary.interpolate import interp_hermite
 import matplotlib.animation as animation
+from plotly.express.colors import sample_colorscale
+from plotly.graph_objects import Figure, Scatter
 import numpy as np
 
 
@@ -288,3 +290,76 @@ def compare_fams(
     # axlg.set_axis_off()
     fig.tight_layout()
     return fig
+
+
+def compare_fast(
+    periods: np.ndarray,
+    hamiltonians: np.ndarray,
+    filenames: list,
+    directory: str = "../database/",
+    colormap:str='hsv'
+):
+    directory = directory.rstrip("/")
+    vals_dict = {}
+    for fname in filenames:
+        data = np.load(f"{directory}/{fname}.npz")
+        vals_dict[fname] = dict(T=data["periods"], H=data["hamiltonians"])
+
+    per_range = max(periods) - min(periods)
+    ham_range = max(hamiltonians) - min(hamiltonians)
+    xlim = (max(periods) + min(periods)) / 2 + np.array([-per_range / 2, per_range / 2])
+    ylim = (max(hamiltonians) + min(hamiltonians)) / 2 + np.array(
+        [-ham_range / 2, ham_range / 2]
+    )
+
+    curve1 = Scatter(
+        x=periods,
+        y=hamiltonians,
+        name="Compare",
+        hoverinfo="name",
+        mode="lines",
+        line=dict(width=1.5, color="white"),
+        showlegend=False,
+    )
+
+    n = len(vals_dict)
+    colors = sample_colorscale(colormap, n) if n > 1 else ["rgb(255,0,0)"]
+    curves = [curve1]
+    j = 0
+    for name, dct in vals_dict.items():
+        curve = Scatter(
+            x=dct["T"],
+            y=dct["H"],
+            name=name,
+            hoverinfo="name",
+            mode="lines",
+            line=dict(width=1, color=colors[j]),
+        )
+        j += 1
+        curves.append(curve)
+
+    curveend = Scatter(
+        x=periods,
+        y=hamiltonians,
+        name="Compare",
+        hoverinfo="name",
+        mode="markers",
+        marker=dict(color="white", size=4),
+    )
+
+    curves.append(curveend)
+    fig = Figure(data=curves)
+    fig.update_layout(
+        template="plotly_dark",
+        showlegend=True,
+        xaxis_range=list(xlim),
+        yaxis_range=list(ylim),
+        margin=dict(l=0, r=0, b=0, t=0),
+        xaxis=dict(title="Period"),
+        yaxis=dict(title="Hamiltonian"),
+        modebar_remove=["autoScale", "lasso2d", "select2d", "toImage"],
+        modebar_orientation='v'
+    )
+
+    config = dict(displaylogo=False, displayModeBar=True)
+    fig.show(config=config)
