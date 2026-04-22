@@ -228,10 +228,13 @@ def plot_nu_functions(
         ax.plot(xs, func, "-", color=c, label=f"P{z+1}")
 
     ylim = 5
-    inds_in = np.argwhere(np.any(np.abs(np.array(funcs)) < ylim, axis=0))
-    indmax = np.max(inds_in) * 1.05
+    try:
+        inds_in = np.argwhere(np.any(np.abs(np.array(funcs)) < ylim, axis=0))
+        indmax = np.max(inds_in) * 1.05
 
-    ax.set(ylim=(-ylim, ylim), xlim=(0, indmax))
+        ax.set(ylim=(-ylim, ylim), xlim=(0, indmax))
+    except ValueError:
+        pass
     ax.legend()
     return fig
 
@@ -243,6 +246,8 @@ def compare_fams(
     figsize: tuple = (6, 6),
     ind_skip: int = 0,
 ):
+    states = [r"$\theta_1$", r"$\theta_2$", r"$\omega_1$", r"$\omega_2$", r"T"]
+    states.pop(ind_skip)
     fig, axs = plt.subplots(3, 3, figsize=figsize, sharex="col", sharey="row")
 
     for jj in range(3):
@@ -277,8 +282,8 @@ def compare_fams(
             #     axs[jj, ii].set(xticklabels=[])
 
     for jj in range(3):
-        axs[jj, 0].set(ylabel=f"$X_{jj}$")
-        axs[-1, jj].set(xlabel=f"$X_{jj+1}$")
+        axs[jj, 0].set(ylabel=states[jj])
+        axs[-1, jj].set(xlabel=states[jj + 1])
     fig.legend()
     # axlg.set_axis_off()
     fig.tight_layout()
