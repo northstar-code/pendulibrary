@@ -1,10 +1,28 @@
 import matplotlib.pyplot as plt
-from pendulibrary.interpolate import interp_hermite
 import matplotlib.animation as animation
-from plotly.express.colors import sample_colorscale
-from plotly.graph_objects import Figure, Scatter
-import numpy as np
 
+import numpy as np
+from os import listdir
+from scipy.interpolate import CubicSpline
+
+
+from pendulibrary.interpolate import interp_hermite
+from pendulibrary.common_targetters import single_fixed
+from pendulibrary.integrate import integrate_state
+from pendulibrary.targeter import dc_underconstrained
+from pendulibrary.common import hamiltonian
+
+try:
+    from plotly.express.colors import sample_colorscale
+    from plotly.graph_objects import Figure, Scatter
+except ImportError:
+    print("Failed plotly import, some plotters may be unavailable")
+try:
+    from dash import Dash, dcc, html, Input, Output, State, Patch, callback
+    import dash_bootstrap_components as dbc
+    from dash.exceptions import PreventUpdate
+except ImportError:
+    print("Failed dash import, GUI will be unavailable")
 
 def plot_timeline(
     xs_preprop: np.ndarray,
@@ -364,16 +382,6 @@ def compare_fast(
     config = dict(displaylogo=False, displayModeBar=True)
     fig.show(config=config)
 
-
-from pendulibrary.common_targetters import single_fixed
-from os import listdir
-from dash import Dash, dcc, html, Input, Output, State, Patch, callback
-import dash_bootstrap_components as dbc
-from dash.exceptions import PreventUpdate
-from scipy.interpolate import CubicSpline
-from pendulibrary.integrate import integrate_state
-from pendulibrary.targeter import dc_underconstrained
-from pendulibrary.common import hamiltonian
 
 def gui(
     db_path:str,
