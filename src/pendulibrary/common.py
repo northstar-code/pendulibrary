@@ -166,3 +166,16 @@ def stm_eom(
             out[4 + row * 4 + col] = s
 
     return out
+
+
+@njit(cache=True)
+def hamiltonian(x: np.ndarray, Lr: float, Mr: float):
+    t1, t2, w1, w2 = x
+    dt = t1 - t2
+    PE = -(Mr + 1) * np.cos(t1) - Mr * Lr * np.cos(t2)
+    KE = (
+        (Mr + 1) * w1 * w1 / 2
+        + Mr * Lr * Lr * w2 * w2 / 2
+        + Mr * Lr * w1 * w2 * np.cos(dt)
+    )
+    return PE + KE
