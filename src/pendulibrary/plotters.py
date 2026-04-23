@@ -399,18 +399,19 @@ def gui(
     curve_inner = Scatter(
         x=[np.nan,np.nan],
         y=[np.nan,np.nan],
-        mode="lines", hoverinfo=None, line=dict(color='darkgray', width=0.5)
+        mode="lines", hoverinfo=None, line=dict(color='darkgrey', width=0.2)
     )
     curve_outer = Scatter(
         x=[np.nan,np.nan],
         y=[np.nan,np.nan],
-        mode="lines", hoverinfo=None, line=dict(color='gray', width=1)
+        mode="lines", hoverinfo=None, line=dict(color='lightgray', width=1.)
     )
     dots = Scatter(
         x=[0.,0.,0.],
         y=[0.,-1.,-2.],
         mode="markers+lines",hoverinfo=None,
-        marker=dict(color='white', size=[15,10,10])
+        marker=dict(color='white', size=[15,10,10]),
+        line=dict(width=2)
     )
     fig = Figure(data=[curve_inner, curve_outer, dots])
 
@@ -442,8 +443,8 @@ def gui(
                       ]),
             width=2
         ),
-        dbc.Col(html.Div([dbc.FormText("Select Within Family"),
-            dcc.Slider(0.0, 1.0, 1e-3, value=0, marks=None, included=False, updatemode="drag", id="slider")]),
+        dbc.Col(html.Div([dbc.FormText("Select Within Family"), #updatemode="drag", 
+            dcc.Slider(0.0, 1., 1e-3, value=0., marks=None, included=False, updatemode="drag",id="slider")]),
             width=6
         )
             
@@ -494,7 +495,7 @@ def gui(
         arclen = np.append(0, np.cumsum(np.linalg.norm(np.diff(vals, axis=0), axis=1)))
         smax = max(arclen)
         Mr, Lr = data["params"]
-        aux_data = {"arclen":arclen, "smax":smax,"vals":vals, "Mr":Mr,"Lr":Lr}
+        aux_data = {"arclen":arclen, "smax":smax,"vals":vals, "Mr":float(Mr),"Lr":float(Lr)}
         
         return aux_data, 0.
 
@@ -548,14 +549,14 @@ def gui(
         Output("card-body-content", "children"),
         Output("display", "figure", allow_duplicate=True),
         Input("slider", "value"),
-        Input("aux-data", "data"),
+        State("aux-data", "data"),
         State("display", "figure"),
         prevent_initial_call=True,
     )
     def update_curve_within_fam(s, aux_data, fig):
         if aux_data is None:
             raise PreventUpdate
-        arclen, smax, vals = aux_data["arclen"], aux_data["smax"], aux_data["vals"]
+        arclen, smax, vals = np.array(aux_data["arclen"]), np.array(aux_data["smax"]), np.array(aux_data["vals"])
         Lr,Mr = aux_data["Lr"], aux_data["Mr"]
         if vals is None:
             raise PreventUpdate
@@ -563,25 +564,26 @@ def gui(
         
         patch = Patch()
         point = spline(s * smax)
-        # point = np.array([np.interp(s*smax, arclen, v) for v in np.array(vals).T])    
-        # print(point)
+        # skip interpolation for the sake of debugging
+        # ind = np.argmin(np.abs(s*smax - np.array(arclen)))
+        # point = vals[ind]
+        
         x0, tf = point[:4], point[-1]
         targ = single_fixed(0, x0[0], 2, Lr, Mr, int_tol)
         Xg = targ.get_X(x0, tf)
         try:
-            X, _, stm = dc_underconstrained(Xg, targ.g_dg_stm, targ_tol,max_iter=max_iter,debug=False)
+            X, _, stm = dc_underconstrained(Xg, targ.g_dg_stm, targ_tol,max_iter=max_iter,debug=False,max_step = 0.1)
         except RuntimeError:
-            return aux_data, 0., [html.P(f"FAILED"), html.P(""), html.P("")],patch
+            print("FALLBACK")
+            return aux_data, 0., [html.P(f"FAILED TO"), html.P("CONVERGE TO"), html.P("SELECTED ORBIT")],patch
         eigs = np.linalg.eigvals(stm)
         stab = np.max([(np.abs(lam) + 1 / np.abs(lam)) / 2 for lam in eigs])
         x0 = targ.get_x0(X)
         ham = hamiltonian(x0, Lr, Mr)
         tf = targ.get_period(X)
         ts, xs1, fs = integrate_state(x0, tf, Lr, Mr, int_tol)
-        
-        _, xs_t = interp_hermite(ts, xs1, fs, np.linspace(0, tf, n_time, True))
+        _, xs_t = interp_hermite(ts, xs1, fs, np.linspace(0., tf, n_time, True))
         _, xs_curve = interp_hermite(ts, xs1, fs, n_mult=density)
-
         y1_curve = -np.cos(xs_curve[0])
         x1_curve = np.sin(xs_curve[0])
         y2_curve = y1_curve - Lr * np.cos(xs_curve[1])
@@ -599,14 +601,6 @@ def gui(
         yl = np.array([miny, maxy])
         yl = np.mean(yl) + (yl-np.mean(yl))*1.1
 
-        # lims = np.array([xl, yl])
-        # ctrs = np.mean(lims, axis=1)
-        # w = np.max(lims[:, 1] - lims[:, 0])
-        # bounds = np.array([-w / 2, w / 2])
-
-        
-        # xl, yl = ctrs[:, None] + 1.3 * bounds[None, :]
-
         patch.layout.xaxis.range = xl
         patch.layout.yaxis.range = yl
 
@@ -616,10 +610,8 @@ def gui(
         patch.data[1].y = y2_curve
         patch.data[2].x = [0.,x1_t[0],x2_t[0]]
         patch.data[2].y = [0.,y1_t[0],y2_t[0]]
-
-
         
-        
+        # return np.nan
         curve_data = dict(coords=np.array([x1_t,y1_t,x2_t,y2_t]).T,h=ham, stab=stab,period=tf)
         
         displaydata = [html.P(f"th0: [{x0[0]:.5f}, {x0[1]:.5f}]"), 
@@ -636,11 +628,17 @@ def gui(
     def pauseplay(_, disabled):
         return not disabled
     
-    # print("COMPILING HELPERS...")
+    print("COMPILING HELPERS...")
     data, _ = set_family("DDsp")        
-    _ = update_curve_within_fam(0., data, fig) # this will force compile
+    _ = update_curve_within_fam(0.0, data, fig) # this will force compile
+    # print("compiled 0., compiling 0.01")
+    _ = update_curve_within_fam(0.01, data, fig) # this will force compile
+    # print("compiled 0.01., compiling 0.5")
+    _ = update_curve_within_fam(0.5, data, fig) # this will force compile
+    # print("compiled 0.5, compiling 1.")
+    _ = update_curve_within_fam(1., data, fig) # this will force compile
     
-    # print("\t\tCompiled")
+    print("\t\tCompiled")
     
-    app.run(debug=debug, use_reloader=False, jupyter_mode="inline", port=port)
+    app.run(debug=debug, use_reloader=False, port=port) # , jupyter_mode="inline",threaded=False
 

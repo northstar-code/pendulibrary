@@ -78,7 +78,7 @@ class single_fixed(Targetter):
         return np.insert(states, self.ind_fixed, self.val_fixed)
 
     def get_period(self, X: np.ndarray):
-        return X[-1]
+        return float(X[-1])
 
     def DG(self, stm: np.ndarray, eomf: np.ndarray):
         dG = np.hstack((stm - np.eye(4), eomf[:, None]))

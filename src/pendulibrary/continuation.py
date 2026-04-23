@@ -1,13 +1,14 @@
-from pendulibrary.targeter import *
+from pendulibrary.targeter import dc_square, dc_tangent, dc_underconstrained
 from warnings import warn
 from typing import List, Callable
 from tqdm.auto import tqdm
+import numpy as np
 
 
 def fixed_step_cont(
-    X0: NDArray,
-    g_dg_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
-    dir0: NDArray | List,
+    X0: np.ndarray,
+    g_dg_stm_func: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]],
+    dir0: np.ndarray | List,
     s: float = 1e-3,
     S: float = 0.5,
     tol: float = 1e-10,
@@ -15,13 +16,13 @@ def fixed_step_cont(
     max_step: None | float = None,
     fudge: float | None = None,
     exact_tangent: bool = False,
-) -> Tuple[List, List]:
+) -> tuple[List, List]:
     """Custom arclength-based continuation wrapper. The modified algorithm has a full step size of s, rather than projected step size.
 
     Args:
-        X0 (NDArray): initial control variables
+        X0 (np.ndarray): initial control variables
         f_df_stm_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
-        dir0 (NDArray | List): rough initial stepoff direction. Is mostly just used to switch the direction of the computed tangent vector
+        dir0 (np.ndarray | List): rough initial stepoff direction. Is mostly just used to switch the direction of the computed tangent vector
         s (float, optional): step size. Defaults to 1e-3.
         S (float, optional): terminate at this arclength. Defaults to 0.5.
         tol (float, optional): tolerance for convergence. Defaults to 1e-10.
@@ -34,7 +35,7 @@ def fixed_step_cont(
 
 
     Returns:
-        Tuple[List, List]: all Xs, all eigenvalues
+        tuple[List, List]: all Xs, all eigenvalues
     """
     # if no stop callback, make one
 
@@ -100,9 +101,9 @@ def fixed_step_cont(
 
 
 def adaptive_cont(
-    X0: NDArray,
-    g_dg_stm_func: Callable[[NDArray], Tuple[NDArray, NDArray, NDArray]],
-    dir0: NDArray | List,
+    X0: np.ndarray,
+    g_dg_stm_func: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]],
+    dir0: np.ndarray | List,
     s0: float = 1e-2,
     s_min: float = 1e-3,
     S: float = 0.5,
@@ -116,16 +117,16 @@ def adaptive_cont(
     exp_iters: float = 0.3,
     max_step: float | None = None,
     exact_tangent: bool = False,
-) -> Tuple[np.ndarray, np.ndarray, Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+) -> tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Custom arclength-based continuation wrapper with variable step size. This modified algorithm has a full step size of s, rather than projected step size.
     At each step, the step size multiplies by num_iters/num_iters_previous, in so that if it takes longer to converge we reduce the step size
     At each step, the step size also multiplies by the dot product between the tangent vector and the step; if this dot product is close to 1, then the curve is not sharp and step size wont be reduced. Else, it will.
     At each step, the step size also multiplies by the parameter `rate`, which should be >1 to ensure step size can recover
 
     Args:
-        X0 (NDArray): initial control variables
+        X0 (np.ndarray): initial control variables
         f_df_stm_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
-        dir0 (NDArray | List): rough initial stepoff direction. Is mostly just used to switch the direction of the computed tangent vector
+        dir0 (np.ndarray | List): rough initial stepoff direction. Is mostly just used to switch the direction of the computed tangent vector
         s (float, optional): step size. Defaults to 1e-3.
         S (float, optional): terminate at this arclength. Defaults to 0.5.
         tol (float, optional): tolerance for convergence. Defaults to 1e-10.
@@ -137,7 +138,7 @@ def adaptive_cont(
 
 
     Returns:
-        Tuple[List, List]: all Xs, all eigenvalues
+        tuple[List, List]: all Xs, all eigenvalues
     """
     assert rate >= 1.0
     assert reduce_maxiter > 1.0
@@ -268,7 +269,7 @@ def adaptive_cont(
 
 def find_bifurcation(
     X0: np.ndarray | List,
-    g_dg_stm_func: Callable[[np.ndarray], Tuple[np.ndarray, np.ndarray, np.ndarray]],
+    g_dg_stm_func: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]],
     tan0: np.ndarray | List,
     s0: float = 1e-3,
     targ_tol: float = 1e-13,
@@ -281,9 +282,9 @@ def find_bifurcation(
     """Find bifurcation using Broucke stability
 
     Args:
-        X0 (NDArray): initial control variables
+        X0 (np.ndarray): initial control variables
         f_df_stm_func (Callable): function with signature f, df/dX, STM = f_df_func(X)
-        dir0 (NDArray | List): signed initial stepoff direction.
+        dir0 (np.ndarray | List): signed initial stepoff direction.
         s0 (float, optional): initial step size. Defaults to 1e-2.
         targ_tol (float, optional): tolerance for targetter convergence. Defaults to 1e-10.
         skip (int, optional): number of crossings to skip. Defaults to 0.
@@ -294,7 +295,7 @@ def find_bifurcation(
         debug (bool, optional): whether to print off function evaluations and steps
 
     Returns:
-        NDArray: Bifurcation control variables, tangent vector
+        np.ndarray: Bifurcation control variables, tangent vector
     """
     if seek_local_opt:
         assert scale > 4

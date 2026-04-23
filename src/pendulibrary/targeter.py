@@ -1,10 +1,10 @@
-from pendulibrary.integrate import *
+import numpy as np
 from typing import Callable
 
 
 def dc_tangent(
-    X_prev: NDArray,
-    tangent: NDArray,
+    X_prev: np.ndarray,
+    tangent: np.ndarray,
     f_df_func: Callable,
     s: float = 1e-3,
     tol: float = 1e-8,
@@ -12,7 +12,7 @@ def dc_tangent(
     fudge: float | None = None,
     max_step: float | None = None,
     debug: bool = False,
-) -> Tuple[NDArray, NDArray, NDArray, int]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """Pseudoarclength continuation differential corrector. The modified algorithm has a full step size of s, rather than projected step size.
 
     Args:
@@ -60,14 +60,14 @@ def dc_tangent(
 
 
 def dc_square(
-    X_guess: NDArray,
+    X_guess: np.ndarray,
     g_dg_func: Callable,
     tol: float = 1e-8,
     fudge: float = 1.0,
     max_step: float | None = None,
     debug: bool = False,
     max_iter: int | None = None,
-) -> Tuple[NDArray, NDArray, NDArray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Natural parameter continuation differetial corrector
 
     Args:
@@ -109,14 +109,14 @@ def dc_square(
 
 
 def dc_underconstrained(
-    X_guess: NDArray,
+    X_guess: np.ndarray,
     g_dg_func: Callable,
     tol: float = 1e-8,
     fudge: float = 1.0,
     max_step: float | None = None,
     debug: bool = False,
     max_iter: int | None = None,
-) -> Tuple[NDArray, NDArray, NDArray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Underconstrained differential corrector
 
     Args:
@@ -132,8 +132,8 @@ def dc_underconstrained(
         Tuple[NDArray, NDArray, NDArray]: X. final dF/dx, full-rev STM
     """
     X = X_guess.copy()
-    nX = len(X_guess)
-    dG = np.empty((nX, nX))
+    nX = X_guess.shape[0]
+    dG = np.empty((nX - 1, nX))
     stm_full = np.empty((nX, nX))
 
     g = np.array([np.inf] * nX)
@@ -149,6 +149,6 @@ def dc_underconstrained(
         X += fudge * dX
         niters += 1
         if debug:
-            print(dX)
+            print(X, dX)
 
     return X, dG, stm_full

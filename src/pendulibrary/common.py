@@ -168,7 +168,7 @@ def stm_eom(
     return out
 
 
-@njit(cache=True)
+# @njit(cache=True)
 def hamiltonian(x: np.ndarray, Lr: float, Mr: float):
     t1, t2, w1, w2 = x
     dt = t1 - t2

@@ -3,7 +3,6 @@ from pendulibrary.common import get_A_raw
 from scipy.linalg import expm
 from pendulibrary.common_targetters import single_fixed
 from pendulibrary.targeter import dc_underconstrained
-
 # find somewhere better for these functions probably
 
 
@@ -32,7 +31,9 @@ def get_x0_linear(
         vals = eigs.eigenvalues
         e1, e2 = eigs.eigenvectors[:, np.abs(vals - 1) < 1e-10].T
 
-        force_0 = 0 if np.abs(e1[0]) > np.abs(e1[1]) and np.abs(e2[0]) > np.abs(e2[1]) else 1
+        force_0 = (
+            0 if np.abs(e1[0]) > np.abs(e1[1]) and np.abs(e2[0]) > np.abs(e2[1]) else 1
+        )
         if np.any(np.iscomplex(e1)):
             x0 = np.imag(e1 / e1[force_0])
         else:
@@ -79,7 +80,9 @@ def get_x0_corrected(
         vals = eigs.eigenvalues
         e1, e2 = eigs.eigenvectors[:, np.abs(vals - 1) < 1e-10].T
 
-        force_0 = 0 if np.abs(e1[0]) > np.abs(e1[1]) and np.abs(e2[0]) > np.abs(e2[1]) else 1
+        force_0 = (
+            0 if np.abs(e1[0]) > np.abs(e1[1]) and np.abs(e2[0]) > np.abs(e2[1]) else 1
+        )
         if np.any(np.iscomplex(e1)):
             x0 = np.imag(e1 / e1[force_0])
         else:
