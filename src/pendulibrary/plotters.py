@@ -654,7 +654,6 @@ def gui(
 
         x0, tf = point[:4], point[-1]
         try:
-            print(ind_fix, val_fix)
             targ = single_fixed(ind_fix, val_fix, 2, Lr, Mr, int_tol)
             Xg = targ.get_X(x0, tf)
             X, _, stm = dc_underconstrained(
@@ -681,7 +680,7 @@ def gui(
                 return (
                     aux_data,
                     0.0,
-                    [html.P(f"FAILED TO CONVERGE "), html.P("TO SELECTED ORBIT")],
+                    [html.P(f"FAILED TO CONVERGE TO SELECTED ORBIT")],
                     patch1,
                 )
         eigs = np.linalg.eigvals(stm)
