@@ -361,7 +361,8 @@ def compare_fast(
         x=periods,
         y=hamiltonians,
         name="Compare",
-        hoverinfo="name",
+        hoverinfo="name+text",
+        hovertext=[i for i in range(len(periods))],
         mode="markers",
         marker=dict(color="white", size=4),
     )
@@ -373,11 +374,12 @@ def compare_fast(
         showlegend=True,
         xaxis_range=list(xlim),
         yaxis_range=list(ylim),
-        margin=dict(l=0, r=0, b=0, t=0),
+        margin=dict(l=0, r=150, b=0, t=0),
         xaxis=dict(title="Period"),
         yaxis=dict(title="Hamiltonian"),
         modebar_remove=["autoScale", "lasso2d", "select2d", "toImage"],
-        modebar_orientation="v",
+        modebar_orientation="v"
+        
     )
 
     config = dict(displaylogo=False, displayModeBar=True)
@@ -399,27 +401,28 @@ def gui(
         file.removesuffix(".npz") for file in listdir(db_path) if file.endswith(".npz")
     ]
     filenames = ["Select Family"] + filenames
+    
     curve_inner = Scatter(
         x=[np.nan, np.nan],
         y=[np.nan, np.nan],
         mode="lines",
-        hoverinfo=None,
+        hoverinfo='none',
         line=dict(color="darkgrey", width=0.2),
     )
     curve_outer = Scatter(
         x=[np.nan, np.nan],
         y=[np.nan, np.nan],
         mode="lines",
-        hoverinfo=None,
+        hoverinfo='none',
         line=dict(color="lightgray", width=1.0),
     )
     dots = Scatter(
         x=[0.0, 0.0, 0.0],
         y=[0.0, -1.0, -2.0],
         mode="markers+lines",
-        hoverinfo=None,
-        marker=dict(color="white", size=[15, 10, 10]),
-        line=dict(width=2),
+        hoverinfo='none',
+        marker=dict(color=["white",'cyan','magenta'], size=[15, 10, 10]),
+        line=dict(color='white',width=2),
     )
     fig = Figure(data=[curve_inner, curve_outer, dots])
 
@@ -434,67 +437,94 @@ def gui(
     fig.update_yaxes(range=(-2.5, 0.5), autorange=False)
     fig.update_xaxes(range=(-1.5, 1.5), autorange=False)
     fig.update_yaxes(scaleanchor="x", scaleratio=1)
+    
+    # SECOND FIG
+    
+    th1_t = Scatter(
+        x=[-1, 1.0], y=[0.0, 0.0], mode="lines", hoverinfo='none', line=dict(color='cyan',width=0.75)
+    )
+    th2_t = Scatter(
+        x=[-1, 1.0], y=[0.0, 0.0], mode="lines", hoverinfo='none', line=dict(color='magenta',width=0.75)
+    )
+    zro = Scatter(
+        x=[0.0, 0], y=[-1, 1], mode="lines", hoverinfo='none', line=dict(color='white',width=1)
+    )
+    fig2 = Figure(data=[th1_t,th2_t,zro])
+
+    # set layout
+    fig2.update_layout(
+        template="plotly_dark",
+        showlegend=False,
+        margin=dict(l=0, r=0, b=0, t=0),
+        xaxis_visible=False,
+        # yaxis_visible=False,
+    )
+    fig2.update_yaxes(range=(-1., 1.), autorange=False)
+    fig2.update_xaxes(range=(-1, 1), autorange=False)
 
     # Dash dropdowns
     app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.themes.CYBORG])
 
-    
-    
-    
-    
     
         
     #fmt: off
     app.layout = dbc.Container([
     dbc.Row([
         dbc.Col(
-            html.Div([dbc.FormText("Family Name"),
+            html.Div([#dbc.FormText("Family Name"),
                       dbc.Select(filenames, "Select Family", id="fam-dropdown")]),
             width=4
         ),
         dbc.Col(
-            html.Div([dbc.FormText("Flip Family"),html.Br(),
-                      dbc.Button("Flip", id="flip-h",size='sm')
-                      ]),
-            width=2
+            dbc.Label("Within family:"),
+            width="auto",  # Adjusts width to content
         ),
-        dbc.Col(html.Div([dbc.FormText("Select Within Family"),
+        dbc.Col(html.Div([#dbc.FormText("Select Within Family"),
             dcc.Slider(0.0, 1., 1e-3, value=0., marks=None, included=False, updatemode="drag",id="slider")]),
-            width=6
-        )
-            
-    ]),
-
-    dbc.Row([
-        dbc.Col(html.Div([
-                dbc.FormText("Animation Speed"),
-                dcc.Slider(1, 50, 1, value=5, marks=None, included=False, id="speed")
-            ]),
-            width=4
-        ),
-        dbc.Col(
-            html.Div([
-                dbc.FormText("Animate"), html.Br(),
-                dbc.Button("Play / Pause", id="play",style={"padding": "0px"}),
-            ]),
-            width=2
-        ),
+            width=True
+        ),  
         
         dbc.Col(
             html.Div([
-                dbc.Card([html.Div(id="card-body-content", children="Initial Condition",style={'lineHeight': '0.0', 'fontFamily': 'Consolas, "Courier New", monospace'})],body=True)
+                dbc.Button("Flip", id="flip-h",style={"padding": "0px",'justify':'right'})
+                ],style={'justify':'right'}),
+            width=1
+        ),
+    ]),
+
+    dbc.Row([
+        dbc.Col(
+            html.Div([
+                dbc.Button("Play / Pause", id="play",size='sm',style={"padding": "0px"}),
             ]),
-            width=6
+            width=2
+        ),
+        dbc.Col(
+            dbc.Label("Animation speed:"),
+            width="auto",  # Adjusts width to content
+        ),
+        dbc.Col(html.Div([
+                dcc.Slider(1, 50, 1, value=5, marks=None, included=False, id="speed")
+            ]),
+            width=True
         ),
     ]),
     
     dbc.Row([dbc.Col(html.Div([dcc.Graph(figure=fig, id="display")]), width=12)]),
-
+    dbc.Row([dbc.Col(html.Div([dcc.Graph(figure=fig2, id="th_t",style={"height":"100px"})]), width=12)]),
+    dbc.Row(dbc.Col(
+            html.Div([
+                dbc.Card([html.Div(id="card-body-content", children="Initial Condition",style={'lineHeight': '0.0', 'fontFamily': 'Consolas, "Courier New", monospace'})],body=True)
+            ]),
+            width=12
+        )),
+    
     html.Div([dcc.Store(id="curve-data", storage_type="memory"), 
         dcc.Store(id="k-store", storage_type="memory"), 
         dcc.Store(id="aux-data", storage_type="memory"),
         dcc.Interval(id="timer", interval=1000 / framerate, disabled=True)
     ])
+    
     ], fluid=True)
     # fmt:on
 
@@ -533,6 +563,7 @@ def gui(
 
     @callback(
         Output("display", "figure", allow_duplicate=True),
+        Output("th_t", "figure", allow_duplicate=True),
         Output("k-store", "data", allow_duplicate=True),
         Input("timer", "n_intervals"),
         State("k-store", "data"),
@@ -553,11 +584,23 @@ def gui(
         k = k + speed
         k %= n
 
-        patch = Patch()
-        patch.data[2].x = [0.0, curve[k][0], curve[k][2]]
-        patch.data[2].y = [0.0, curve[k][1], curve[k][3]]
+        patch1 = Patch()
+        patch1.data[2].x = [0.0, curve[k][0], curve[k][2]]
+        patch1.data[2].y = [0.0, curve[k][1], curve[k][3]]
 
-        return patch, k
+
+        t1,t2 = np.array(curvedata["thetas"]).T
+        
+        patch2 = Patch()
+        # patch2.data[0].x = np.linspace(-1,1,n)
+        ihlf = n//2
+        t1_ext = [*t1, *t1, *t1]
+        t2_ext = [*t2, *t2, *t2]        
+        patch2.data[0].y = t1_ext[(n+k-ihlf):(n+k+ihlf)]
+        patch2.data[1].y = t2_ext[(n+k-ihlf):(n+k+ihlf)]
+
+
+        return patch1, patch2, k
 
     @callback(
         Output("aux-data", "data", allow_duplicate=True),
@@ -580,6 +623,7 @@ def gui(
         Output("k-store", "data"),
         Output("card-body-content", "children"),
         Output("display", "figure", allow_duplicate=True),
+        Output("th_t", "figure", allow_duplicate=True),
         Input("slider", "value"),
         Input("aux-data", "data"),
         State("display", "figure"),
@@ -600,7 +644,7 @@ def gui(
             raise PreventUpdate
         spline = CubicHermiteSpline(arclen, vals, tans, axis=0)
 
-        patch = Patch()
+        patch1 = Patch()
         point = spline(s * smax)
         
         # to determine max step
@@ -636,11 +680,11 @@ def gui(
                 return (
                     aux_data,
                     0.0,
-                    [html.P(f"FAILED TO"), html.P("CONVERGE TO"), html.P("SELECTED ORBIT")],
-                    patch,
+                    [html.P(f"FAILED TO CONVERGE "), html.P("TO SELECTED ORBIT")],
+                    patch1,
                 )
         eigs = np.linalg.eigvals(stm)
-        stab = np.max([(np.abs(lam) + 1 / np.abs(lam)) / 2 for lam in eigs])
+        stab = np.max(np.abs(eigs))
         x0 = targ.get_x0(X)
         ham = hamiltonian(x0, Lr, Mr)
         tf = targ.get_period(X)
@@ -660,31 +704,40 @@ def gui(
         maxx = max(np.max(np.abs(x1_t)), np.max(np.abs(x2_t)))
         maxy = max(0, y1_curve.max(), y2_curve.max())
         miny = min(0, y1_curve.min(), y2_curve.min())
-        xl = np.array([-maxx, maxx]) * 1.1
+        xl = np.array([-maxx, maxx]) * 1.02
         yl = np.array([miny, maxy])
-        yl = np.mean(yl) + (yl - np.mean(yl)) * 1.1
+        yl = np.mean(yl) + (yl - np.mean(yl)) * 1.02
 
-        patch.layout.xaxis.range = xl
-        patch.layout.yaxis.range = yl
+        patch1.layout.xaxis.range = xl
+        patch1.layout.yaxis.range = yl
 
-        patch.data[0].x = x1_curve
-        patch.data[0].y = y1_curve
-        patch.data[1].x = x2_curve
-        patch.data[1].y = y2_curve
-        patch.data[2].x = [0.0, x1_t[0], x2_t[0]]
-        patch.data[2].y = [0.0, y1_t[0], y2_t[0]]
+        patch1.data[0].x = x1_curve
+        patch1.data[0].y = y1_curve
+        patch1.data[1].x = x2_curve
+        patch1.data[1].y = y2_curve
+        patch1.data[2].x = [0.0, x1_t[0], x2_t[0]]
+        patch1.data[2].y = [0.0, y1_t[0], y2_t[0]]
 
-        # return np.nan
+    
+        patch2 = Patch()
+        yl2 = [min(xs_t[0].min(), xs_t[1].min()),max(xs_t[0].max(), xs_t[1].max())]
+        patch2.data[0].x = np.linspace(-1,1,n_time)
+        patch2.data[0].y = xs_t[0]
+        patch2.data[1].x = np.linspace(-1,1,n_time)
+        patch2.data[1].y = xs_t[1]
+        patch2.data[2].y = yl2
+        patch2.layout.yaxis.range = yl2
+        
+        
         curve_data = dict(
-            coords=np.array([x1_t, y1_t, x2_t, y2_t]).T, h=ham, stab=stab, period=tf
+            thetas=xs_t[:2].T,coords=np.array([x1_t, y1_t, x2_t, y2_t]).T, h=ham, stab=stab, period=tf
         )
 
         displaydata = [
-            html.P(f"th0: [{x0[0]:.5f}, {x0[1]:.5f}]"),
-            html.P(f"w0: [{x0[2]:.5f}, {x0[3]:.5f}]"),
+            html.P(f"x(0): [{x0[0]:.5f}, {x0[1]:.5f}, {x0[2]:.5f}, {x0[3]:.5f}]"),
             html.P(f"Period: {tf:.5f}, H: {ham:.4f}, Floquet: {stab:.2e}"),
         ]
-        return curve_data, 0, displaydata, patch
+        return curve_data, 0, displaydata, patch1, patch2
 
     @callback(
         Output("timer", "disabled"),
@@ -702,5 +755,5 @@ def gui(
     print("\t\tCompiled")
 
     app.run(
-        debug=debug, use_reloader=False, port=port
+        debug=debug, use_reloader=False, port=port,jupyter_mode="inline"
     )  # , jupyter_mode="inline",threaded=False
