@@ -556,7 +556,7 @@ def gui(
             Mr= float(Mr),
             Lr= float(Lr),
             ind_fix= int(ind_fix),
-            val_fix= int(val_fix)
+            val_fix= float(val_fix)
         )
 
         return aux_data, 0.0
@@ -654,6 +654,7 @@ def gui(
 
         x0, tf = point[:4], point[-1]
         try:
+            print(ind_fix, val_fix)
             targ = single_fixed(ind_fix, val_fix, 2, Lr, Mr, int_tol)
             Xg = targ.get_X(x0, tf)
             X, _, stm = dc_underconstrained(

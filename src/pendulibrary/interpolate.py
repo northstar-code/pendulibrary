@@ -6,7 +6,7 @@ import numpy as np
 
 @njit(cache=True)
 def Hermite_interp_interval(
-    t: float | NDArray,
+    t: NDArray,
     t0: float,
     t1: float,
     x0: float | NDArray,
@@ -29,12 +29,17 @@ def Hermite_interp_interval(
         NDArray|Float: interpolated value
     """
     dt = t1 - t0  # time between samples
-    tau = (t - t0) / (t1 - t0)  # fraction of time interval
+    oodenom = 1 / dt
+    tau = np.empty_like(t)
+    for i in range(tau.shape[0]):
+        tau[i] = (t[i] - t0) * oodenom  # fraction of time interval
     # polynomial bases
-    h00 = 2 * tau**3 - 3 * tau**2 + 1
-    h10 = tau**3 - 2 * tau**2 + tau
-    h01 = -2 * tau**3 + 3 * tau**2
-    h11 = tau**3 - tau**2
+    tau2 = tau * tau
+    tau3 = tau2 * tau
+    h00 = 2 * tau3 - 3 * tau2 + 1
+    h10 = tau3 - 2 * tau2 + tau
+    h01 = -2 * tau3 + 3 * tau2
+    h11 = tau3 - tau2
 
     x0e = np.expand_dims(x0, axis=1)
     x1e = np.expand_dims(x1, axis=1)
