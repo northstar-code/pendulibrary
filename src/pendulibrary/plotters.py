@@ -131,8 +131,9 @@ def make_gif(
     Lr: float,
     file_name: str,
     frames: int = 100,
-    figsize: tuple = (5, 5),
+    figsize: int=5,
     fps: int = 30,
+    dpi:float=250,
 ):
     if not file_name.endswith(".gif"):
         file_name = file_name + ".gif"
@@ -154,19 +155,30 @@ def make_gif(
     x1_interp = np.sin(t1)
     y2_interp = y1_interp - Lr * np.cos(t2)
     x2_interp = x1_interp + Lr * np.sin(t2)
-
-    fig, ax = plt.subplots(figsize=figsize)
+    
+    minx = min(min(x1_curve),min(x2_curve))
+    miny = min(min(y1_curve),min(y2_curve))
+    maxx = max(max(x1_curve),max(x2_curve))
+    maxy = max(max(y1_curve),max(y2_curve))
+    meanx = (minx+maxx)/2
+    meany = (miny+maxy)/2
+    w = maxx - minx
+    h = maxy-miny
+    figsize_tup = (figsize, h/w * figsize) if w>h else (w/h *figsize, figsize)
+    
+    fig, ax = plt.subplots(figsize=figsize_tup)
     (line,) = ax.plot(
         [0, x1_interp[0], x2_interp[0]],
         [0, y1_interp[0], y2_interp[0]],
         "o-",
         color="red",
     )
-    ax.plot(0, 0, "ok", ms=15)
+    ax.plot(0, 0, "ok", ms=10)
     ax.plot(x1_curve, y1_curve, "-k", lw=0.5)
     ax.plot(x2_curve, y2_curve, "-k", lw=0.5)
     ax.set(xticks=[], yticks=[])
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    ax.set(xlim = (meanx-1.05*w/2,meanx+1.05*w/2),ylim = (meany-1.05*h/2,meany+1.05*h/2))
     ax.axis("equal")
 
     def update(frame):
@@ -176,7 +188,7 @@ def make_gif(
 
     anim = animation.FuncAnimation(fig, update, frames=frames, interval=1000 / fps)
     writer = animation.PillowWriter(fps=fps)
-    anim.save(file_name, writer=writer)
+    anim.save(file_name, writer=writer, dpi=dpi)
     plt.close(fig)
 
 
@@ -465,6 +477,22 @@ def gui(
     # Dash dropdowns
     app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.themes.CYBORG])
 
+    modal = dbc.Modal([
+        dbc.ModalHeader("Enter Parameters"),
+        dbc.ModalBody([
+            dbc.Label("File name"),
+            dbc.Input(id="input-fname", type="text", placeholder="...", value="gif-out"),
+            dbc.Label("GIF DPI"),
+            dbc.Input(id="input-dpi", type="number", step=1, value=200),
+            dbc.Label("Number of frames"),
+            dbc.Input(id="input-frames", type="number", step=1,value=150),
+            dbc.Label("Framerate"),
+            dbc.Input(id="input-fps", type="number", step=1, value=30),
+        ]),
+        dbc.ModalFooter(
+            dbc.Button("Submit", id="modal-submit", n_clicks=0)
+        ),
+    ], id="modal", is_open=False)
     
         
     #fmt: off
@@ -495,9 +523,9 @@ def gui(
     dbc.Row([
         dbc.Col(
             html.Div([
-                dbc.Button("Play / Pause", id="play",size='sm',style={"padding": "0px"}),
+                dbc.Button("Play", id="play",size='sm',style={"padding": "0px"}),
             ]),
-            width=2
+            width=1
         ),
         dbc.Col(
             dbc.Label("Animation speed:"),
@@ -508,16 +536,33 @@ def gui(
             ]),
             width=True
         ),
+        dbc.Col(
+            html.Div([
+                dbc.Button("Save GIF", id="save",style={"padding": "0px",'justify':'right'}),
+                modal,
+                html.Div(id="gif-out")],
+            style={'justify':'right'}),
+            width=1
+        ),
     ]),
     
     dbc.Row([dbc.Col(html.Div([dcc.Graph(figure=fig, id="display")]), width=12)]),
     dbc.Row([dbc.Col(html.Div([dcc.Graph(figure=fig2, id="th_t",style={"height":"100px"})]), width=12)]),
-    dbc.Row(dbc.Col(
+    dbc.Row([
+        # dbc.Col(
+        #     # html.Div([
+        #     #     dbc.Button("Save GIF", id="save",style={"padding": "0px",'justify':'right'}),
+        #     #     modal,
+        #     #     html.Div(id="gif-out")],
+        #     # style={'justify':'right'}),
+        #     # width=2
+        # ),
+        dbc.Col(
             html.Div([
                 dbc.Card([html.Div(id="card-body-content", children="Initial Condition",style={'lineHeight': '0.0', 'fontFamily': 'Consolas, "Courier New", monospace'})],body=True)
             ]),
             width=12
-        )),
+        )]),
     
     html.Div([dcc.Store(id="curve-data", storage_type="memory"), 
         dcc.Store(id="k-store", storage_type="memory"), 
@@ -730,23 +775,60 @@ def gui(
         
         
         curve_data = dict(
-            thetas=xs_t[:2].T,coords=np.array([x1_t, y1_t, x2_t, y2_t]).T, h=ham, stab=stab, period=tf
+            thetas=xs_t[:2].T,coords=np.array([x1_t, y1_t, x2_t, y2_t]).T, h=ham, stab=stab, period=tf, ts_int = ts, xs_int = xs1, fs_int=fs
         )
+        
 
         displaydata = [
-            html.P(f"x(0): [{x0[0]:.5f}, {x0[1]:.5f}, {x0[2]:.5f}, {x0[3]:.5f}]"),
-            html.P(f"Period: {tf:.5f}, H: {ham:.4f}, Floquet: {stab:.2e}"),
+            html.P(f"x(0): [{x0[0]:.7f}, {x0[1]:.7f}, {x0[2]:.7f}, {x0[3]:.7f}]"),
+            html.P(f"Period: {tf:.7f}, H: {ham:.5f}, Floquet: {stab:.2e}"),
         ]
         return curve_data, 0, displaydata, patch1, patch2
 
     @callback(
         Output("timer", "disabled"),
+        Output("play", "children"),
         Input("play", "n_clicks"),
         State("timer", "disabled"),
         prevent_initial_call=True,
     )
-    def pauseplay(_, disabled):
-        return not disabled
+    def pauseplay(n, disabled):
+        label = "Pause" if not n%2 else "Play"
+        return not disabled, label
+    
+    
+    @callback(
+        Output("modal", "is_open"),
+        Input("save", "n_clicks"),
+        Input("modal-submit", "n_clicks"),
+        State("modal", "is_open"),
+        prevent_initial_call=True,
+    )
+    def toggle_modal(open_clicks, submit_clicks, is_open):
+        return not is_open  # flip on either trigger
+
+    
+    @callback(
+        Output("gif-out", "children"),
+        Input("modal-submit", "n_clicks"),
+        State("curve-data", "data"),
+        State("aux-data", "data"),
+        State("input-fname", "value"),
+        State("input-frames", "value"),
+        State("input-fps", "value"),
+        State("input-dpi", "value"),
+        prevent_initial_call=True,
+    )
+    def save_gif(_,curve_data, aux_data, fname, numframes, fps, dpi):
+        # curve-data=dict(
+        #     thetas=xs_t[:2].T,coords=np.array([x1_t, y1_t, x2_t, y2_t]).T, h=ham, stab=stab, period=tf
+        # )
+        xs = np.array(curve_data['xs_int'])
+        ts = np.array(curve_data['ts_int'])
+        fs = np.array(curve_data['fs_int'])
+        Lr = float(aux_data["Lr"])
+        make_gif(xs, ts, fs, Lr, fname, int(numframes), 5., int(fps), dpi)
+        print("GIF saved")
 
     print("COMPILING HELPERS...", end=" ")
     data, _ = set_family("DDsp")
