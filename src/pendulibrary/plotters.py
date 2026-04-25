@@ -792,8 +792,8 @@ def gui(
         State("timer", "disabled"),
         prevent_initial_call=True,
     )
-    def pauseplay(n, disabled):
-        label = "Pause" if not n%2 else "Play"
+    def pauseplay(_, disabled):
+        label = "Play" if disabled else "Pause"
         return not disabled, label
     
     
