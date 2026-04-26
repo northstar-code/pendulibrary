@@ -4,6 +4,7 @@ import matplotlib.animation as animation
 import numpy as np
 from os import listdir
 from scipy.interpolate import CubicSpline, CubicHermiteSpline
+from tqdm.auto import tqdm
 
 
 from pendulibrary.interpolate import interp_hermite
@@ -131,7 +132,7 @@ def make_gif(
     Lr: float,
     file_name: str,
     frames: int = 100,
-    figsize: int=5,
+    figsize: float=5,
     fps: int = 30,
     dpi:float=250,
 ):
@@ -167,15 +168,20 @@ def make_gif(
     figsize_tup = (figsize, h/w * figsize) if w>h else (w/h *figsize, figsize)
     
     fig, ax = plt.subplots(figsize=figsize_tup)
+    ax.axis('off')
     (line,) = ax.plot(
         [0, x1_interp[0], x2_interp[0]],
         [0, y1_interp[0], y2_interp[0]],
-        "o-",
-        color="red",
+        "-k"
+    )
+    dots = ax.scatter(
+        [x1_interp[0], x2_interp[0]],
+        [y1_interp[0], y2_interp[0]],
+        c=['b','r'],s=15
     )
     ax.plot(0, 0, "ok", ms=10)
-    ax.plot(x1_curve, y1_curve, "-k", lw=0.5)
-    ax.plot(x2_curve, y2_curve, "-k", lw=0.5)
+    ax.plot(x1_curve, y1_curve, "-b", lw=0.5)
+    ax.plot(x2_curve, y2_curve, "-r", lw=0.5)
     ax.set(xticks=[], yticks=[])
     fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     ax.set(xlim = (meanx-1.05*w/2,meanx+1.05*w/2),ylim = (meany-1.05*h/2,meany+1.05*h/2))
@@ -184,6 +190,7 @@ def make_gif(
     def update(frame):
         line.set_xdata([0, x1_interp[frame], x2_interp[frame]])
         line.set_ydata([0, y1_interp[frame], y2_interp[frame]])
+        dots.set_offsets(([x1_interp[frame], y1_interp[frame]], [x2_interp[frame], y2_interp[frame]]))
         return (line,)
 
     anim = animation.FuncAnimation(fig, update, frames=frames, interval=1000 / fps)
@@ -244,6 +251,104 @@ def plot_timeline_grid(
     fig.subplots_adjust(wspace=0, hspace=0)
     return fig
 
+def animate_family(
+    fam_name:str, Ntraj: int = 50, fps: float = 20, dpi: float = 300, density: int = 10, figsize:float=5., int_tol:float=1e-14, len_bounds:tuple=(0., 1.)
+):
+    x1s = []
+    y1s = []
+    x2s = []
+    y2s = []
+    data = np.load(f"../database/{fam_name}.npz")
+    vals = np.column_stack((data["x0s"], data["periods"]))
+    tans = data["tangents"]
+    th0s_abs = np.abs(data["x0s"][:, :2])
+    ind_fix = np.argmin(np.std(th0s_abs, axis=0))
+    val_fix = np.pi if abs(th0s_abs[0, ind_fix] - np.pi) < th0s_abs[0, ind_fix] else 0
+
+    arclen = np.append(0, np.cumsum(np.linalg.norm(np.diff(vals, axis=0), axis=1)))
+    smax = max(arclen)
+    Mr, Lr = data["params"]
+    spline = CubicHermiteSpline(arclen, vals, tans, axis=0)
+    # spline = CubicSpline(arclen, vals, tans, axis=0)
+
+
+    for s in tqdm(np.linspace(len_bounds[0], len_bounds[1], Ntraj)):
+        point = spline(s * smax)
+        # to determine max step
+        ind = np.argmin(np.abs(s * smax - np.array(arclen)))
+        ind1 = ind - 1 if ind > 0 else ind
+        ind2 = ind1 + 1
+
+        x0, tf = point[:4], point[-1]
+        try:
+            targ = single_fixed(ind_fix, val_fix, 3, Lr, Mr, int_tol)
+            Xg = targ.get_X(x0, tf)
+            X, _, _ = dc_underconstrained(
+                Xg,
+                targ.g_dg_stm,
+                1e-8,
+                max_iter=15,
+                debug=False,
+                max_step=abs(arclen[ind1] - arclen[ind2])*2,
+            )
+        except RuntimeError:
+            targ = single_fixed(ind_fix, val_fix, 2, Lr, Mr, int_tol)
+            Xg = targ.get_X(x0, tf)
+            X, _, _ = dc_underconstrained(
+                Xg,
+                targ.g_dg_stm,
+                1e-8,
+                max_iter=15,
+                debug=False,
+                max_step=abs(arclen[ind1] - arclen[ind2])*2,
+            )
+        x0 = targ.get_x0(X)
+        tf = targ.get_period(X)
+        ts, xs1, fs = integrate_state(x0, tf, Lr, Mr, int_tol)
+        _, xs_curve = interp_hermite(ts, xs1, fs, n_mult=density)
+        y1_curve = -np.cos(xs_curve[0])
+        x1_curve = np.sin(xs_curve[0])
+        y2_curve = y1_curve - Lr * np.cos(xs_curve[1])
+        x2_curve = x1_curve + Lr * np.sin(xs_curve[1])
+        x1s.append(x1_curve)
+        y1s.append(y1_curve)
+        x2s.append(x2_curve)
+        y2s.append(y2_curve)
+
+    print("Making GIF")
+    maxx = np.max(np.concat([*x1s, *x2s]))
+    maxy = np.max(np.concat([*y1s, *y2s]))
+    minx = np.min(np.concat([*x1s, *x2s]))
+    miny = np.min(np.concat([*y1s, *y2s]))
+    meanx = (maxx + minx) / 2
+    meany = (maxy + miny) / 2
+    w = maxx - minx
+    h = maxy - miny
+
+    figsize_tup = (figsize, h / w * figsize) if w > h else (w / h * figsize, figsize)
+
+    fig, ax = plt.subplots(figsize=figsize_tup)
+    ax.axis('off')
+    ax.plot(0, 0, "ok", ms=5)
+    (c1,) = ax.plot([-1, 1], [-1, 1], "-b", lw=1)
+    (c2,) = ax.plot([-1, 1], [1, -1], "-r", lw=1)
+    ax.set(xticks=[], yticks=[])
+    fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
+    ax.set(
+        xlim=(meanx - 1.03 * w / 2, meanx + 1.03 * w / 2),
+        ylim=(meany - 1.03 * h / 2, meany + 1.03 * h / 2),
+    )
+
+    def update(frame):
+        c1.set_data(x1s[frame], y1s[frame])
+        c2.set_data(x2s[frame], y2s[frame])
+        return (c1, c2)
+
+    anim = animation.FuncAnimation(fig, update, frames=Ntraj, interval=1000 / fps)
+    writer = animation.PillowWriter(fps=fps)
+    anim.save(f"{fam_name}_full.gif", writer=writer, dpi=dpi)
+    plt.close(fig)
+    print("Done")
 
 def plot_nu_functions(
     eigs_all: np.ndarray, max_period_mult: int = 5, cmap: str = "hsv"
