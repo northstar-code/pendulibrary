@@ -932,7 +932,7 @@ def gui(
         ts = np.array(curve_data['ts_int'])
         fs = np.array(curve_data['fs_int'])
         Lr = float(aux_data["Lr"])
-        make_gif(xs, ts, fs, Lr, fname, int(numframes), 5., int(fps), dpi)
+        make_gif(xs, ts, fs, Lr, fname, int(numframes), 3, int(fps), dpi)
         print("GIF saved")
 
     print("COMPILING HELPERS...", end=" ")
