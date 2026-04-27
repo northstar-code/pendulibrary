@@ -25,6 +25,7 @@ try:
 except ImportError:
     print("Failed dash import, GUI will be unavailable")
 
+# TODO: document these
 
 def plot_timeline(
     xs_preprop: np.ndarray,

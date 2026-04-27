@@ -79,6 +79,7 @@ def interp_hermite(
     x = x.T.copy()
     dxdt = dxdt.T.copy()
     if t_eval is None:
+        # If we have a n_mult and no t_eval given, find which times to add
         if n_mult is not None:
             t_eval = np.empty((0,), np.float64)
             for a in range(len(t) - 1):
@@ -90,6 +91,7 @@ def interp_hermite(
     else:
         assert t_eval[0] >= t[0] and t_eval[-1] <= t[-1]
 
+    # Loop through and add function evaluations where needed
     x_eval = np.empty((0, len(x[0])), dtype=np.float64)
     for j in range(len(t) - 1):
         t0 = t[j]

@@ -1,6 +1,6 @@
 import numpy as np
 
-# Coefficients or DOP853 integrator. Taken from scipy DOP853 implementation.
+# Coefficients or DOP853 integrator. Taken from scipy DOP853 implementation. Do not touch
 
 N_STAGES = 12
 N_STAGES_EXTENDED = 16

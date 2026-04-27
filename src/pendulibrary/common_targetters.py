@@ -63,6 +63,16 @@ class single_fixed(Targetter):
         Mr: float,
         int_tol: float,
     ):
+        """Initialize the targetter
+
+        Args:
+            ind_fixed (int): Which state variable is fixed (as an index). Recommend 0 or 1 (thetas)
+            val_fixed (float): What value is it fixed at (often either 0 or pi)
+            ind_no_enforce (int): Which index do we not care about enforcing continuity on. Recommend 2 or 3 (omegas)
+            Lr (float): Length ratio := L2/L1
+            Mr (float): Mass ratio := M2/M1
+            int_tol (float): Integration tolerance, recommend 1e-12 to 1e-14
+        """
         self.int_tol = int_tol
         self.Lr = Lr
         self.Mr = Mr
@@ -82,8 +92,8 @@ class single_fixed(Targetter):
 
     def DG(self, stm: np.ndarray, eomf: np.ndarray):
         dG = np.hstack((stm - np.eye(4), eomf[:, None]))
-        dG = np.delete(dG, self.ind_fixed, 1)
-        dG = np.delete(dG, self.ind_no_enforce, 0)
+        dG = np.delete(dG, self.ind_fixed, 1)  # nix the fixed column
+        dG = np.delete(dG, self.ind_no_enforce, 0)  # nix the unenforced row
         return dG
 
     def g(self, x0: np.ndarray, xf: np.ndarray):
@@ -92,6 +102,7 @@ class single_fixed(Targetter):
     def g_dg_stm(self, X: np.ndarray):
         x0 = self.get_x0(X)
         period = self.get_period(X)
+        # integrate to get state and STM at t=T
         _, ys = integrate_state_stm(x0, period, self.Lr, self.Mr, self.int_tol)
         xf, stm = ys[:4, -1].copy(), ys[4:, -1].reshape(4, 4)
         eomf = eom(0.0, xf, self.Lr, self.Mr)
