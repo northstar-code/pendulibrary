@@ -1,5 +1,4 @@
-from pendulibrary.targeter import dc_square, dc_tangent, dc_underconstrained
-from warnings import warn
+from pendulibrary.targeter import dc_tangent
 from typing import List, Callable
 from tqdm.auto import tqdm
 import numpy as np

@@ -34,6 +34,19 @@ def plot_timeline(
     Lr: float,
     N: int,
 ):
+    """Plot a timeline of one trajectory (i.e. a static replacement for a gif) as a long image (1 row)
+
+    Args:
+        xs_preprop (np.ndarray): Propropagated states (4, Nt)
+        ts_preprop (np.ndarray): Times of prepropagated states (Nt, )
+        fs_preprop (np.ndarray): Dynamics evaluations at prepropagated times (4, Nt)
+        Lr (float): Length ratio
+        N (int): Number of panes
+
+    Returns:
+        Figure: figure handle
+    """
+    # Interpolate to N times
     Tf = ts_preprop[-1]
     _, xs_interp = interp_hermite(
         ts_preprop, xs_preprop, fs_preprop, np.linspace(0, Tf, N, False)
@@ -44,17 +57,20 @@ def plot_timeline(
 
     fig, axs = plt.subplots(1, N, figsize=(4 * N, 6))
 
+    # get coordinates of curve
     y1_curve = -np.cos(t1_dense)
     x1_curve = np.sin(t1_dense)
 
     y2_curve = y1_curve - Lr * np.cos(t2_dense)
     x2_curve = x1_curve + Lr * np.sin(t2_dense)
 
+    # get coordinates at times
     y1_interp = -np.cos(t1)
     x1_interp = np.sin(t1)
     y2_interp = y1_interp - Lr * np.cos(t2)
     x2_interp = x1_interp + Lr * np.sin(t2)
 
+    # Plot each pane
     for ii in range(N):
         ax = axs[ii]
 
@@ -81,8 +97,21 @@ def plot_timeline_grid(
     nrow: int = 2,
     ncol: int = 10,
 ):
+    """Plot a timeline but in a better pattern than 1 row and many columns
+
+    Args:
+        xs_preprop (np.ndarray): Propropagated states (4, Nt)
+        ts_preprop (np.ndarray): Times of prepropagated states (Nt, )
+        fs_preprop (np.ndarray): Dynamics evaluations at prepropagated times (4, Nt)
+        Lr (float): Length ratio
+        nrow (int, optional): Number of rows. Defaults to 2.
+        ncol (int, optional): Number of columns. Defaults to 10.
+
+    Returns:
+        Figure: Figure handle
+    """
     Tf = ts_preprop[-1]
-    N = nrow * ncol
+    N = nrow * ncol # get the total number of panes
     _, xs_interp = interp_hermite(
         ts_preprop, xs_preprop, fs_preprop, np.linspace(0, Tf, N, True)
     )
@@ -137,6 +166,19 @@ def make_gif(
     fps: int = 30,
     dpi:float=250,
 ):
+    """Make a GIF of one trajectory. This can be pretty slow. I use the Pillow Writer, but it can be switched
+
+    Args:
+        xs (np.ndarray): _description_
+        ts (np.ndarray): _description_
+        fs (np.ndarray): _description_
+        Lr (float): _description_
+        file_name (str): _description_
+        frames (int, optional): Number of frames. Defaults to 100.
+        figsize (float, optional): Figure size along the larger axis, in inches. Defaults to 5.
+        fps (int, optional): Framerate of the gif. Defaults to 30.
+        dpi (float, optional): DPI of the output image. Defaults to 250.
+    """
     if not file_name.endswith(".gif"):
         file_name = file_name + ".gif"
     Tf = ts[-1]
@@ -199,58 +241,6 @@ def make_gif(
     anim.save(file_name, writer=writer, dpi=dpi)
     plt.close(fig)
 
-
-def plot_timeline_grid(
-    xs_preprop: np.ndarray,
-    ts_preprop: np.ndarray,
-    fs_preprop: np.ndarray,
-    Lr: float,
-    nrow: int = 2,
-    ncol: int = 10,
-):
-    Tf = ts_preprop[-1]
-    N = nrow * ncol
-    _, xs_interp = interp_hermite(
-        ts_preprop, xs_preprop, fs_preprop, np.linspace(0, Tf, N, True)
-    )
-    _, xs_dense = interp_hermite(ts_preprop, xs_preprop, fs_preprop, n_mult=5)
-
-    t1, t2 = xs_interp[:2]
-    t1_dense, t2_dense = xs_dense[:2]
-
-    fig, axs_grid = plt.subplots(nrow, ncol, figsize=(4 * ncol, 6 * nrow))
-    axs = axs_grid.ravel()
-
-    y1_curve = -np.cos(t1_dense)
-    x1_curve = np.sin(t1_dense)
-
-    y2_curve = y1_curve - Lr * np.cos(t2_dense)
-    x2_curve = x1_curve + Lr * np.sin(t2_dense)
-
-    y1_interp = -np.cos(t1)
-    x1_interp = np.sin(t1)
-    y2_interp = y1_interp - Lr * np.cos(t2)
-    x2_interp = x1_interp + Lr * np.sin(t2)
-
-    for ii in range(N):
-        ax = axs[ii]
-
-        ax.plot(0, 0, "ok", ms=15)
-
-        ax.plot(x1_curve, y1_curve, "-k", lw=0.5)
-        ax.plot(x2_curve, y2_curve, "-k", lw=0.5)
-
-        ax.plot(
-            [0, x1_interp[ii], x2_interp[ii]],
-            [0, y1_interp[ii], y2_interp[ii]],
-            "o-",
-            color="red",
-        )
-
-        ax.axis("equal")
-        ax.set(xticks=[], yticks=[])
-    fig.subplots_adjust(wspace=0, hspace=0)
-    return fig
 
 def animate_family(
     fam_name:str, Ntraj: int = 50, fps: float = 20, dpi: float = 300, density: int = 10, figsize:float=5., int_tol:float=1e-14, len_bounds:tuple=(0., 1.)
@@ -468,7 +458,8 @@ def compare_fast(
             x=dct["T"],
             y=dct["H"],
             name=name,
-            hoverinfo="name",
+            hoverinfo="name+text",
+            hovertext = [i for i in range(len(dct["T"]))],
             mode="lines",
             line=dict(width=1, color=colors[j]),
         )
