@@ -29,15 +29,15 @@ def eom(_: float, state: np.ndarray, Lr: float, Mr: float) -> np.ndarray:
     dth2sq = dth2 * dth2
 
     # temp storage variables
-    den = 1 / (2 + Mr - Mr * np.cos(2 * Dth))
+    den = 1.0 / (2.0 + Mr - Mr * np.cos(2.0 * Dth))
     d1 = (
-        -(2 + Mr) * np.sin(th1)
-        - Mr * np.sin(th1 - 2 * th2)
-        - 2 * Mr * sinDth * (Lr * dth2sq + dth1sq * cosDth)
+        -(2.0 + Mr) * np.sin(th1)
+        - Mr * np.sin(th1 - 2.0 * th2)
+        - 2.0 * Mr * sinDth * (Lr * dth2sq + dth1sq * cosDth)
     ) * den
     d2 = (
         (
-            2
+            2.0
             * sinDth
             * (dth1sq * (1 + Mr) + (1 + Mr) * np.cos(th1) + dth2sq * Lr * Mr * cosDth)
         )

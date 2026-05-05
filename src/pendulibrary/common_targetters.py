@@ -111,3 +111,51 @@ class single_fixed(Targetter):
         g = self.g(x0, xf)
 
         return g, dG, stm
+
+
+class closest_sol(Targetter):
+    def __init__(
+        self,
+        Lr: float,
+        Mr: float,
+        int_tol: float,
+    ):
+        """Initialize the targetter
+
+        Args:
+            Lr (float): Length ratio := L2/L1
+            Mr (float): Mass ratio := M2/M1
+            int_tol (float): Integration tolerance, recommend 1e-12 to 1e-14
+        """
+        self.int_tol = int_tol
+        self.Lr = Lr
+        self.Mr = Mr
+
+    def get_X(self, x0: np.ndarray, period: float):
+        return np.append(x0, period)
+
+    def get_x0(self, X: np.ndarray):
+        return X[:-1].copy()
+
+    def get_period(self, X: np.ndarray):
+        return float(X[-1])
+
+    def DG(self, stm: np.ndarray, eomf: np.ndarray):
+        dG = np.hstack((stm - np.eye(4), eomf[:, None]))
+        return dG
+
+    def g(self, x0: np.ndarray, xf: np.ndarray):
+        return xf - x0
+
+    def g_dg_stm(self, X: np.ndarray):
+        x0 = self.get_x0(X)
+        period = self.get_period(X)
+        # integrate to get state and STM at t=T
+        _, ys = integrate_state_stm(x0, period, self.Lr, self.Mr, self.int_tol)
+        xf, stm = ys[:4, -1].copy(), ys[4:, -1].reshape(4, 4)
+        eomf = eom(0.0, xf, self.Lr, self.Mr)
+
+        dG = self.DG(stm, eomf)
+        g = self.g(x0, xf)
+
+        return g, dG, stm
