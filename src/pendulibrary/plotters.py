@@ -164,7 +164,7 @@ def make_gif(
     frames: int = 100,
     figsize: float=5,
     fps: int = 30,
-    dpi:float=250,
+    dpi:float=250
 ):
     """Make a GIF of one trajectory. This can be pretty slow. I use the Pillow Writer, but it can be switched
 
@@ -179,8 +179,14 @@ def make_gif(
         fps (int, optional): Framerate of the gif. Defaults to 30.
         dpi (float, optional): DPI of the output image. Defaults to 250.
     """
-    if not file_name.endswith(".gif"):
-        file_name = file_name + ".gif"
+    if ".gif" in file_name:
+        export_as = "gif"
+    elif ".webm" in file_name:
+        export_as = "webm"
+    else:
+        export_as = "mp4"
+    # if not file_name.endswith(f".{export_as}"):
+    #     file_name = f"{file_name}.{export_as}"
     Tf = ts[-1]
     _, xs_interp = interp_hermite(ts, xs, fs, np.linspace(0, Tf, frames, False))
     _, xs_dense = interp_hermite(ts, xs, fs, n_mult=3)
@@ -236,8 +242,25 @@ def make_gif(
         dots.set_offsets(([x1_interp[frame], y1_interp[frame]], [x2_interp[frame], y2_interp[frame]]))
         return (line,)
 
-    anim = animation.FuncAnimation(fig, update, frames=frames, interval=1000 / fps)
-    writer = animation.PillowWriter(fps=fps)
+    anim = animation.FuncAnimation(fig, update, blit=True,frames=frames, interval=1000 / fps)
+    
+    if export_as == "gif":
+        writer = animation.PillowWriter(fps=fps)
+    elif export_as == "mp4":
+        writer = animation.FFMpegWriter(
+            fps=30,
+            codec='h264',
+            bitrate=-1,
+            extra_args=['-crf', '23', '-pix_fmt', 'yuv420p']
+        )
+    else:
+        writer = animation.FFMpegWriter(
+            fps=30,
+            codec='libvpx-vp9',
+            bitrate=-1,
+            extra_args=['-crf', '33', '-b:v', '0', '-pix_fmt', 'yuva420p', '-loop', '1']
+        )
+        
     anim.save(file_name, writer=writer, dpi=dpi)
     plt.close(fig)
 
@@ -577,7 +600,7 @@ def gui(
     modal = dbc.Modal([
         dbc.ModalHeader("Enter Parameters"),
         dbc.ModalBody([
-            dbc.Label("File name"),
+            dbc.Label("File name (w/ .gif, .mp4, or .webm)"),
             dbc.Input(id="input-fname", type="text", placeholder="...", value="gif-out"),
             dbc.Label("GIF DPI"),
             dbc.Input(id="input-dpi", type="number", step=1, value=200),
@@ -635,7 +658,7 @@ def gui(
         ),
         dbc.Col(
             html.Div([
-                dbc.Button("Save GIF", id="save",style={"padding": "0px",'justify':'right'}),
+                dbc.Button("Save File", id="save",style={"padding": "0px",'justify':'right'}),
                 modal,
                 html.Div(id="gif-out")],
             style={'justify':'right'}),
