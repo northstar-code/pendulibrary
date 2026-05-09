@@ -248,14 +248,14 @@ def make_gif(
         writer = animation.PillowWriter(fps=fps)
     elif export_as == "mp4":
         writer = animation.FFMpegWriter(
-            fps=30,
+            fps=fps,
             codec='h264',
             bitrate=-1,
             extra_args=['-crf', '23', '-pix_fmt', 'yuv420p']
         )
     else:
         writer = animation.FFMpegWriter(
-            fps=30,
+            fps=fps,
             codec='libvpx-vp9',
             bitrate=-1,
             extra_args=['-crf', '33', '-b:v', '0', '-pix_fmt', 'yuva420p', '-loop', '1']
@@ -807,10 +807,14 @@ def gui(
         Lr, Mr = aux_data["Lr"], aux_data["Mr"]
         if vals is None:
             raise PreventUpdate
-        spline = CubicHermiteSpline(arclen, vals, tans, axis=0)
+        # spline = CubicHermiteSpline(arclen, vals, tans, axis=0)
+        spline_x = CubicHermiteSpline(arclen, vals[:,:-1], tans[:,:-1], axis=0)
+        spline_t = CubicHermiteSpline(arclen, vals[:,-1], tans[:,-1], axis=0)
 
         patch1 = Patch()
-        point = spline(s * smax)
+        point_x = spline_x(s * smax)
+        point_t = spline_t(s * smax)
+        point = np.append(point_x, point_t)
         
         # to determine max step
         ind = np.argmin(np.abs(s*smax - np.array(arclen)))

@@ -110,6 +110,6 @@ def dc_underconstrained(
         X += fudge * dX
         niters += 1
         if debug:
-            print(X, dX)
+            print(g, dX)
 
     return X, dG, stm_full
