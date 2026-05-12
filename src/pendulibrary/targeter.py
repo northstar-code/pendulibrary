@@ -48,8 +48,11 @@ def dc_tangent(
         g, dG, stm_full = f_df_func(X)
         # Get delta between guess and previous known
         delta = X - X_prev
-        norm_constraint = np.dot(delta, delta) - s**2
-        norm_deriv = 2 * delta
+        # norm_constraint = np.dot(delta, delta) - s**2
+        # norm_deriv = 2 * delta
+
+        norm_constraint = np.dot(delta, tangent) - s
+        norm_deriv = delta
         # augmented cost and its derivative
         Gprime = np.array([*g, norm_constraint])
         dGprime = np.vstack((dG, norm_deriv))

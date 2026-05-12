@@ -189,19 +189,19 @@ def adaptive_cont(
                 else:
                     raise err
 
-            dprod_check = np.dot(tangent, X - Xs[-1]) / s
-            if dprod_check < 0.25:
-                # reject the last step if there's a substantial mismatch between precomputed and taken step
-                s /= reduce_reverse
-                dS = np.linalg.norm(Xs[-1] - Xs[-2])
-                arclen -= dS
-                bar.update(-dS)
-                Xs.pop()
-                tangents.pop()
-                DGs.pop()
-                X = Xs[-1]
-                tangent = tangent_prev.copy()
-                continue
+            # dprod_check = np.dot(tangent, X - Xs[-1]) / s
+            # if dprod_check < 0.25:
+            #     # reject the last step if there's a substantial mismatch between precomputed and taken step
+            #     s /= reduce_reverse
+            #     dS = np.linalg.norm(Xs[-1] - Xs[-2])
+            #     arclen -= dS
+            #     bar.update(-dS)
+            #     Xs.pop()
+            #     tangents.pop()
+            #     DGs.pop()
+            #     X = Xs[-1]
+            #     tangent = tangent_prev.copy()
+            #     continue
 
             # Update tracked lists
             Xs.append(X)
@@ -209,7 +209,7 @@ def adaptive_cont(
             eig_vals.append(np.linalg.eigvals(stm))
             DGs.append(dG)
             stms.append(stm)
-            arclen += s
+            arclen += np.linalg.norm(Xs[-1] - Xs[-2])
 
             # Get new tangent
             tangent_prev = tangent
@@ -238,7 +238,7 @@ def adaptive_cont(
                 break
 
             # Update step size
-            s *= (target_iter / niters) ** exp_iters * dprod_check**exp_direction
+            s *= (target_iter / niters) ** exp_iters  # * dprod_check**exp_direction
             if max_step is not None and s > max_step:
                 s = max_step
             if niters <= target_iter:
