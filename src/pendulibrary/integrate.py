@@ -47,19 +47,32 @@ def integrate_state(
         K[0] = eom(t, x, Lr, Mr)
         for sm1 in range(coefs.N_STAGES - 1):
             s = sm1 + 1
-            a = coefs.A[s]
-            c = coefs.C[s]
-            dy = np.dot(K[:s].T, a[:s]) * h
+            a = coefs.A[s]  # (12,)
+            c = coefs.C[s]  # float
+            dy = np.zeros_like(x)
+            for ix in range(nx):
+                for js in range(s):
+                    dy[ix] += K[js, ix] * a[js] * h
             K[s] = eom(t + c * h, x + dy, Lr, Mr)
 
         # Proposed step
-        xnew = x + h * np.dot(K[:-1].T, coefs.B)
+        xnew = np.empty_like(x)
+        for j in range(nx):
+            xnew[j] = x[j]
+            for k in range(coefs.N_STAGES):
+                xnew[j] += h * K[k, j] * coefs.B[k]
         K[-1] = eom(t + h, xnew, Lr, Mr)
 
         # Error checking
         scale = atol + np.maximum(np.abs(x), np.abs(xnew)) * rtol
-        err5 = np.dot(K.T, coefs.E5) / scale
-        err3 = np.dot(K.T, coefs.E3) / scale
+        ooscale = 1 / scale
+        err3 = np.zeros(nx)
+        err5 = np.zeros(nx)
+        for j in range(nx):
+            for k in range(coefs.N_STAGES + 1):
+                err3[j] += K[k, j] * coefs.E3[k] * ooscale[j]
+                err5[j] += K[k, j] * coefs.E5[k] * ooscale[j]
+
         err5_norm_2 = 0
         for comp in err5:
             err5_norm_2 += comp**2
@@ -139,19 +152,31 @@ def integrate_state_stm(
         K[0] = stm_eom(t, x, Lr, Mr)
         for sm1 in range(coefs.N_STAGES - 1):
             s = sm1 + 1
-            a = coefs.A[s]
-            c = coefs.C[s]
-            dy = np.dot(K[:s].T, a[:s]) * h
+            a = coefs.A[s]  # (12,)
+            c = coefs.C[s]  # float
+            dy = np.zeros_like(x)
+            for ix in range(nx):
+                for js in range(s):
+                    dy[ix] += K[js, ix] * a[js] * h
             K[s] = stm_eom(t + c * h, x + dy, Lr, Mr)
 
         # Proposed step
-        xnew = x + h * np.dot(K[:-1].T, coefs.B)
+        xnew = np.empty_like(x)
+        for j in range(nx):
+            xnew[j] = x[j]
+            for k in range(coefs.N_STAGES):
+                xnew[j] += h * K[k, j] * coefs.B[k]
         K[-1] = stm_eom(t + h, xnew, Lr, Mr)
 
         # Error checking
         scale = atol + np.maximum(np.abs(x), np.abs(xnew)) * rtol
-        err5 = np.dot(K.T, coefs.E5) / scale
-        err3 = np.dot(K.T, coefs.E3) / scale
+        ooscale = 1 / scale
+        err3 = np.zeros(nx)
+        err5 = np.zeros(nx)
+        for j in range(nx):
+            for k in range(coefs.N_STAGES + 1):
+                err3[j] += K[k, j] * coefs.E3[k] * ooscale[j]
+                err5[j] += K[k, j] * coefs.E5[k] * ooscale[j]
         err5_norm_2 = 0.0
         for comp in err5:
             err5_norm_2 += comp**2
