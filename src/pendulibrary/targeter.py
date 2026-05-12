@@ -12,6 +12,7 @@ def dc_tangent(
     fudge: float | None = None,
     max_step: float | None = None,
     debug: bool = False,
+    pseudo: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
     """Tangent-based continuation differential corrector. The modified algorithm has a full step size of s, rather than projected step size.
 
@@ -48,11 +49,13 @@ def dc_tangent(
         g, dG, stm_full = f_df_func(X)
         # Get delta between guess and previous known
         delta = X - X_prev
-        # norm_constraint = np.dot(delta, delta) - s**2
-        # norm_deriv = 2 * delta
 
-        norm_constraint = np.dot(delta, tangent) - s
-        norm_deriv = delta
+        if pseudo:
+            norm_constraint = np.dot(delta, tangent) - s
+            norm_deriv = delta
+        else:
+            norm_constraint = np.dot(delta, delta) - s**2
+            norm_deriv = 2 * delta
         # augmented cost and its derivative
         Gprime = np.array([*g, norm_constraint])
         dGprime = np.vstack((dG, norm_deriv))

@@ -109,6 +109,7 @@ def adaptive_cont(
     exp_iters: float = 0.3,
     max_step: float | None = None,
     exact_tangent: bool = False,
+    pseudo: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
     """Custom arclength-based continuation wrapper with variable step size. Please ask me if you have questions about this, as I will have a published paper about it
 
@@ -175,6 +176,7 @@ def adaptive_cont(
                     tol,
                     max_iter=max_iter,
                     max_step=s,
+                    pseudo=pseudo,
                     debug=False,
                 )
             except KeyboardInterrupt as err:
@@ -189,19 +191,20 @@ def adaptive_cont(
                 else:
                     raise err
 
-            # dprod_check = np.dot(tangent, X - Xs[-1]) / s
-            # if dprod_check < 0.25:
-            #     # reject the last step if there's a substantial mismatch between precomputed and taken step
-            #     s /= reduce_reverse
-            #     dS = np.linalg.norm(Xs[-1] - Xs[-2])
-            #     arclen -= dS
-            #     bar.update(-dS)
-            #     Xs.pop()
-            #     tangents.pop()
-            #     DGs.pop()
-            #     X = Xs[-1]
-            #     tangent = tangent_prev.copy()
-            #     continue
+            if pseudo:
+                dprod_check = np.dot(tangent, X - Xs[-1]) / s
+                if dprod_check < 0.25:
+                    # reject the last step if there's a substantial mismatch between precomputed and taken step
+                    s /= reduce_reverse
+                    dS = np.linalg.norm(Xs[-1] - Xs[-2])
+                    arclen -= dS
+                    bar.update(-dS)
+                    Xs.pop()
+                    tangents.pop()
+                    DGs.pop()
+                    X = Xs[-1]
+                    tangent = tangent_prev.copy()
+                    continue
 
             # Update tracked lists
             Xs.append(X)
@@ -238,7 +241,9 @@ def adaptive_cont(
                 break
 
             # Update step size
-            s *= (target_iter / niters) ** exp_iters  # * dprod_check**exp_direction
+            s *= (target_iter / niters) ** exp_iters
+            if pseudo:
+                s *= dprod_check**exp_direction
             if max_step is not None and s > max_step:
                 s = max_step
             if niters <= target_iter:
