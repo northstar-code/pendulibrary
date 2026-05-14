@@ -518,6 +518,34 @@ def compare_fast(
     fig.show(config=config)
 
 
+def plot_characteristics(fam_names, fig_title, figsize: tuple = (8, 4), cmap:str="hsv"):
+    cm = plt.get_cmap(cm)
+    fig, axs = plt.subplots(1, 2, figsize=figsize)
+    N = len(fam_names)
+    for jj, fam in enumerate(fam_names):
+        data = np.load(f"../database/{fam}.npz")
+        hams = data["hamiltonians"]
+        eigs = data["eigs"]
+        prd = data["periods"]
+        c = cm(jj / N)
+
+        maxeig = np.max(np.abs(eigs), axis=1)
+        try:
+            axs[0].plot(prd, hams, label=fam, c=c, lw=1)
+            axs[1].semilogy(prd, maxeig, c=c, lw=1)
+        except ValueError:
+            print("Error on ", fam)
+    axs[0].set(xlabel="Period")
+    axs[0].set(ylabel="Hamiltonian")
+    axs[1].set(xlabel="Period")
+    axs[1].set(ylabel=r"$|\lambda|_{\text{max}}$")
+    fig.legend(bbox_to_anchor=(1.0, 0.5), loc="center left", frameon=False)
+    axs[0].grid(True)
+    axs[1].grid(True)
+    fig.suptitle(fig_title)
+    fig.tight_layout()
+    return fig
+
 def gui(
     db_path: str,
     targ_tol: float = 1e-8,

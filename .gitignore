@@ -5,5 +5,7 @@ dist*
 *.png
 *.pdf
 *.gif
+*.mp4
+*.pkl
 family_factory
 IGNORE
