@@ -162,6 +162,7 @@ def adaptive_cont(
     niters = 0
 
     close_to_start = False
+    tot_iters = 0
 
     try:
         while arclen < S:
@@ -179,6 +180,7 @@ def adaptive_cont(
                     pseudo=pseudo,
                     debug=False,
                 )
+                tot_iters += niters
             except KeyboardInterrupt as err:
                 bar.set_postfix_str("KeyboardInterrupt, premature termination")
                 bar.close()
@@ -191,7 +193,7 @@ def adaptive_cont(
                 else:
                     raise err
 
-            if pseudo:
+            if not pseudo:
                 dprod_check = np.dot(tangent, X - Xs[-1]) / s
                 if dprod_check < 0.25:
                     # reject the last step if there's a substantial mismatch between precomputed and taken step
@@ -242,7 +244,7 @@ def adaptive_cont(
 
             # Update step size
             s *= (target_iter / niters) ** exp_iters
-            if pseudo:
+            if not pseudo:
                 s *= dprod_check**exp_direction
             if max_step is not None and s > max_step:
                 s = max_step
@@ -269,6 +271,189 @@ def adaptive_cont(
         np.array(eig_vals),
         (np.array(DGs), np.array(tangents), np.array(stms)),
     )
+
+
+def cont_paper(
+    X0: np.ndarray,
+    g_dg_stm_func: Callable[[np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]],
+    dir0: np.ndarray | List,
+    s0: float = 1e-2,
+    s_min: float = 1e-3,
+    S: float = 0.5,
+    tol: float = 1e-10,
+    max_iter: int = 10,
+    target_iter: int = 6,
+    rate: float = 1.15,
+    reduce_maxiter: float = 5.0,
+    reduce_reverse: float = 2.0,
+    exp_direction: float = 10.0,
+    exp_iters: float = 0.3,
+    max_step: float | None = None,
+    exact_tangent: bool = False,
+    pseudo: bool = False,
+    halt_when: Callable | None = None,
+) -> tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    """Custom arclength-based continuation wrapper with variable step size. Please ask me if you have questions about this, as I will have a published paper about it
+
+    Args:
+        X0 (np.ndarray): initial control variables
+        g_dg_stm_func (Callable): function with signature g, dg/dX, STM = g_dg_stm_func(X)
+        dir0 (np.ndarray | List): rough initial stepoff direction. Is mostly just used to switch the direction of the computed tangent vector
+        s0 (float, optional): Initial step size. Defaults to 1e-3.
+        s_min (float, optional): Minimum allowable step size, below which it's terminated
+        S (float, optional): terminate at this arclength. Defaults to 0.5.
+        tol (float, optional): tolerance for convergence. Defaults to 1e-10.
+        max_iter: (int, optional): maximum number of iterations. Will return what it's computed so far if it exceeds that
+        target_iter: (int, optional): ideal number of iterations. If it's above this, step size will decrease. If below, step size will increase.
+        rate (float, optional): the rate of increase of step size in the absense of any other change
+        reduce_maxiter (float, optional): If we hit the maximum iterations on one attempt, reduce the step size by a factor of this much
+        reduce_reverse (float, optional): If there's a possibility that the solution curve is reversing backward on itself, reduce the step size by a factor of this much
+        exp_direction (float, optional): Strength of step size decrease based on how close the predicted and actual step were
+        exp_iters (float, optional): Strength of step size change based on difference between achieved and target iteration count
+        max_step (float | None, optional): Maximum step size within DC
+        exact_tangent (bool | None, optional): whether the tangent vector `dir0` passed in is exact or approximate. If approximate, it is only used to check direction with a dot product. Otherwise, it is used as-is.
+
+
+    Returns:
+        tuple[np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray, np.ndarray]]: all Xs, all eigenvalues, (DGs, tangents, STMs)
+    """
+    # input validation
+    assert rate >= 1.0
+    assert reduce_maxiter > 1.0
+    assert reduce_reverse > 1.0
+    assert max_iter > target_iter
+
+    X = X0.copy()
+    tangent_prev = dir0 / np.linalg.norm(dir0)
+
+    _, dG, stm = g_dg_stm_func(X0)
+    svd = np.linalg.svd(dG)
+    tangent = tangent_prev.copy() if exact_tangent else svd.Vh[-1]
+
+    Xs = [X0]
+    eig_vals = [np.linalg.eigvals(stm)]
+    tangents = [tangent.copy()]
+    DGs = [dG]
+    stms = [stm]
+    # s_vals = [0.0]
+
+    bar = tqdm(total=S)
+    arclen = 0.0
+    s = s0
+
+    niters = 0
+
+    close_to_start = False
+    tot_iters = 0
+
+    try:
+        while arclen < S:
+            bar.set_description(f"s: {s:.3e}")
+            try:
+                # Error handling included for tons of failure conditions
+                X, dG, stm, niters = dc_tangent(
+                    X,
+                    tangent,
+                    g_dg_stm_func,
+                    s,
+                    tol,
+                    max_iter=max_iter,
+                    max_step=s,
+                    pseudo=pseudo,
+                    debug=False,
+                )
+                tot_iters += niters
+            except KeyboardInterrupt as err:
+                bar.set_postfix_str("KeyboardInterrupt, premature termination")
+                bar.close()
+                break
+            except RuntimeError as err:
+                # If we hit too many iterations, reduce the step size
+                if "max iterations" in str(err):
+                    s /= reduce_maxiter
+                    continue
+                else:
+                    raise err
+
+            if not pseudo:
+                dprod_check = np.dot(tangent, X - Xs[-1]) / s
+                if dprod_check < 0.25:
+                    # reject the last step if there's a substantial mismatch between precomputed and taken step
+                    s /= reduce_reverse
+                    dS = np.linalg.norm(Xs[-1] - Xs[-2])
+                    arclen -= dS
+                    bar.update(-dS)
+                    Xs.pop()
+                    tangents.pop()
+                    DGs.pop()
+                    X = Xs[-1]
+                    tangent = tangent_prev.copy()
+                    continue
+
+            # Update tracked lists
+            Xs.append(X)
+            tangents.append(tangent)
+            eig_vals.append(np.linalg.eigvals(stm))
+            DGs.append(dG)
+            stms.append(stm)
+            arclen += np.linalg.norm(Xs[-1] - Xs[-2])
+
+            # Get new tangent
+            tangent_prev = tangent
+            svd = np.linalg.svd(dG)
+            tangent = svd.Vh[-1]
+
+            # if we flip flop, undo the flipflop
+            if np.dot(tangent, Xs[-1] - Xs[-2]) < 0:
+                tangent *= -1
+
+            bar.update(float(s))
+
+            # looped when youre not near the beginning and within $s$ of the initial state
+            Xdif = X - X0
+            close_to_start = (
+                np.sum((Xdif) ** 2) < (s * 1.5) ** 2 and np.dot(Xdif, tangents[0]) > 0.0
+            )
+
+            # Detect loops as long as we're not near the beginning (which is hardcoded as within 5 steps of the beginning)
+            if arclen > 5 * s and close_to_start:
+                bar.set_postfix_str("Completed loop")
+                bar.total = arclen
+                bar.colour = "green"
+                bar.set_description(f"mean ds: {arclen/len(Xs):.3e}")
+                bar.refresh()
+                break
+
+            # Update step size
+            s *= (target_iter / niters) ** exp_iters
+            if not pseudo:
+                s *= dprod_check**exp_direction
+            if max_step is not None and s > max_step:
+                s = max_step
+            if niters <= target_iter:
+                s *= rate
+
+            if s < s_min:
+                bar.set_postfix_str("Stepsize smaller than min, premature termination")
+                bar.colour = "red"
+                bar.refresh()
+                close_to_start = False
+                break
+
+            if halt_when is not None and halt_when(X):
+                print("HALTING ON COMMAND")
+                break
+
+        if not close_to_start and arclen >= S:  # if we reach the arclength max
+            bar.set_postfix_str("Reached max arclength")
+    except BaseException as err:
+        err_name = type(err).__name__
+        err_text = str(err)
+        bar.set_postfix_str(f"{err_name}: {err_text}, premature termination")
+    bar.close()
+
+    print(f"Finished in {tot_iters} iters")
+    return np.array(Xs), tot_iters
 
 
 def find_bifurcation(

@@ -52,7 +52,7 @@ def dc_tangent(
 
         if pseudo:
             norm_constraint = np.dot(delta, tangent) - s
-            norm_deriv = delta
+            norm_deriv = tangent
         else:
             norm_constraint = np.dot(delta, delta) - s**2
             norm_deriv = 2 * delta
